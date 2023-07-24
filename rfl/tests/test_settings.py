@@ -77,6 +77,12 @@ class TestSettingsDefinition(unittest.TestCase):
             definition.section("section2").parameter("param_uri")._type, "uri"
         )
 
+    def test_invalid_yaml(self):
+        with self.assertRaisesRegex(
+            SettingsDefinitionError, "^Invalid YAML settings definition: "
+        ):
+            loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION + "\n fail")
+
     def test_default_invalid_type_int(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
         loader.content["section2"]["param_int"]["default"] = "fail"
