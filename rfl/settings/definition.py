@@ -19,16 +19,21 @@ class SettingsDefinitionLoader:
 
 class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
     def __init__(self, raw: str = None, path: Path = None):
-        if raw is not None:
-            self.content = yaml.safe_load(raw)
-        elif path is not None:
-            with open(path) as fh:
-                self.content = yaml.safe_load(fh)
-        else:
-            raise SettingsDefinitionErrorError(
-                "Either a raw string value or a path must be given to load YAML "
-                "settings definition"
-            )
+        try:
+            if raw is not None:
+                self.content = yaml.safe_load(raw)
+            elif path is not None:
+                with open(path) as fh:
+                    self.content = yaml.safe_load(fh)
+            else:
+                raise SettingsDefinitionErrorError(
+                    "Either a raw string value or a path must be given to load YAML "
+                    "settings definition"
+                )
+        except yaml.parser.ParserError as err:
+            raise SettingsDefinitionError(
+                f"Invalid YAML settings definition: {str(err)}"
+            ) from err
 
 
 class SettingsParameterDefinition:
