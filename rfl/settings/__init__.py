@@ -109,4 +109,4 @@ class RuntimeSettings:
 
     @classmethod
     def definition_yaml(cls, path: Path):
-        return cls(SettingsDefinition(SettingsDefinitionLoaderYaml(path)))
+        return cls(SettingsDefinition(SettingsDefinitionLoaderYaml(path=path)))
