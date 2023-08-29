@@ -104,7 +104,7 @@ class RuntimeSettings:
             )
         setattr(getattr(self, section.name), parameter.name, value)
 
-    def override_ini(self, path: Path):
+    def override_ini(self, path: Path) -> None:
         self.override(RuntimeSettingsSiteLoaderIni(path=path))
 
     @classmethod
