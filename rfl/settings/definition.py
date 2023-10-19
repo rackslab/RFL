@@ -22,8 +22,13 @@ class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
             if raw is not None:
                 self.content = yaml.safe_load(raw)
             elif path is not None:
-                with open(path) as fh:
-                    self.content = yaml.safe_load(fh)
+                try:
+                    with open(path) as fh:
+                        self.content = yaml.safe_load(fh)
+                except FileNotFoundError:
+                    raise SettingsDefinitionError(
+                        f"Settings definition file {path} not found"
+                    )
             else:
                 raise SettingsDefinitionError(
                     "Either a raw string value or a path must be given to load YAML "
