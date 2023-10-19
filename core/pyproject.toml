@@ -7,7 +7,7 @@ name = "RFL.core"
 version = "0.0.1"
 description = "Rackslab Foundation Library: core package"
 license = {text = "GPLv3+"}
-requires-python = ">=3.9"
+requires-python = ">=3.6"
 keywords = ["utility", "basic"]
 authors = [
     {name = "Rémi Palancher", email = "remi@rackslab.io"},
