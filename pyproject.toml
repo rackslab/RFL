@@ -39,4 +39,4 @@ color = 1
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F"]
-target-version = "py36"
+target-version = "py37"
