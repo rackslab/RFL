@@ -31,4 +31,4 @@ readme = "README.md"
 "Bug Tracker" = "https://github.com/rackslab/RFL/issues"
 
 [tool.setuptools.packages.find]
-include = ["rfl.*"]
+include = ["rfl.tokens*"]
