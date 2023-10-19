@@ -5,17 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 
-class SettingsError(Exception):
-    pass
-
-
-class SettingsDefinitionError(SettingsError):
-    pass
-
-
-class SettingsSiteLoaderError(SettingsError):
-    pass
-
-
-class SettingsOverrideError(SettingsError):
+class RFLError(Exception):
     pass

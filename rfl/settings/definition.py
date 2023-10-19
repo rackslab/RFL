@@ -10,7 +10,7 @@ import logging
 
 import yaml
 
-from ..errors import SettingsDefinitionError
+from .errors import SettingsDefinitionError
 
 
 class SettingsDefinitionLoader:

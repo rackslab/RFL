@@ -13,7 +13,7 @@ from ..settings.definition import SettingsDefinition, SettingsDefinitionLoaderYa
 from ..settings.loaders import RuntimeSettingsSiteLoaderIni
 from ..settings import RuntimeSettings, RuntimeSettingsSection
 
-from ..errors import SettingsDefinitionError, SettingsOverrideError
+from ..settings.errors import SettingsDefinitionError, SettingsOverrideError
 
 VALID_DEFINITION = """
 ---

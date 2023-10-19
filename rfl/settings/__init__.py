@@ -18,7 +18,7 @@ from .definition import (
     SettingsDefinitionLoaderYaml,
 )
 from .loaders import RuntimeSettingsSiteLoader, RuntimeSettingsSiteLoaderIni
-from ..errors import SettingsDefinitionError, SettingsOverrideError
+from .errors import SettingsOverrideError
 
 logger = logging.getLogger(__name__)
 

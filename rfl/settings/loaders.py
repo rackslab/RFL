@@ -8,7 +8,7 @@ import configparser
 from pathlib import Path
 import logging
 
-from ..errors import SettingsSiteLoaderError
+from .errors import SettingsSiteLoaderError
 
 logger = logging.getLogger(__name__)
 
