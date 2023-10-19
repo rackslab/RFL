@@ -6,7 +6,6 @@
 
 from pathlib import Path
 import urllib
-import logging
 
 import yaml
 
@@ -26,7 +25,7 @@ class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
                 with open(path) as fh:
                     self.content = yaml.safe_load(fh)
             else:
-                raise SettingsDefinitionErrorError(
+                raise SettingsDefinitionError(
                     "Either a raw string value or a path must be given to load YAML "
                     "settings definition"
                 )

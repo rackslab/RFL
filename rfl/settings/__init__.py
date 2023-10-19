@@ -9,8 +9,6 @@ import urllib
 
 import logging
 
-import yaml
-
 from .definition import (
     SettingsDefinition,
     SettingsSectionDefinition,

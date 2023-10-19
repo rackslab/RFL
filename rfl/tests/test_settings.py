@@ -5,9 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import unittest
-import copy
 from pathlib import Path
-import urllib
 
 from ..settings.definition import SettingsDefinition, SettingsDefinitionLoaderYaml
 from ..settings.loaders import RuntimeSettingsSiteLoaderIni
@@ -81,7 +79,7 @@ class TestSettingsDefinition(unittest.TestCase):
         with self.assertRaisesRegex(
             SettingsDefinitionError, "^Invalid YAML settings definition: "
         ):
-            loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION + "\n fail")
+            SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION + "\n fail")
 
     def test_default_invalid_type_int(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
@@ -91,7 +89,7 @@ class TestSettingsDefinition(unittest.TestCase):
             "^Default value fail for parameter param_int has not the expected type "
             "int$",
         ):
-            definition = SettingsDefinition(loader)
+            SettingsDefinition(loader)
 
     def test_default_invalid_type_bool(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
@@ -101,7 +99,7 @@ class TestSettingsDefinition(unittest.TestCase):
             "^Default value fail for parameter param_bool has not the expected type "
             "bool$",
         ):
-            definition = SettingsDefinition(loader)
+            SettingsDefinition(loader)
 
     def test_default_invalid_choice(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
@@ -111,7 +109,7 @@ class TestSettingsDefinition(unittest.TestCase):
             "^Default value 12 for parameter param_int is not one of possible choices "
             "\[10, 100, 500\]$",
         ):
-            definition = SettingsDefinition(loader)
+            SettingsDefinition(loader)
 
 
 class TestRuntimeSettings(unittest.TestCase):
