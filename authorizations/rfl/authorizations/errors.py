@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from ..errors import RFLError
+from rfl.core.errors import RFLError
 
 
 class AuthorizationError(RFLError):

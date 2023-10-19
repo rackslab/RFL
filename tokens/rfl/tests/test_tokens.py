@@ -6,8 +6,8 @@
 
 import unittest
 
-from ..tokens.jwt import JWTPrivateKeyFileLoader, JWTManager
-from ..tokens.errors import JWTEncodeError, JWTDecodeError
+from rfl.tokens.jwt import JWTPrivateKeyFileLoader, JWTManager
+from rfl.tokens.errors import JWTEncodeError, JWTDecodeError
 
 PRIVATE_KEY = b"TEST_PRIVATE_KEY"
 

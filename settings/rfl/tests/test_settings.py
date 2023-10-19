@@ -7,11 +7,11 @@
 import unittest
 from pathlib import Path
 
-from ..settings.definition import SettingsDefinition, SettingsDefinitionLoaderYaml
-from ..settings.loaders import RuntimeSettingsSiteLoaderIni
-from ..settings import RuntimeSettings, RuntimeSettingsSection
+from rfl.settings.definition import SettingsDefinition, SettingsDefinitionLoaderYaml
+from rfl.settings.loaders import RuntimeSettingsSiteLoaderIni
+from rfl.settings import RuntimeSettings, RuntimeSettingsSection
 
-from ..settings.errors import SettingsDefinitionError, SettingsOverrideError
+from rfl.settings.errors import SettingsDefinitionError, SettingsOverrideError
 
 VALID_DEFINITION = """
 ---

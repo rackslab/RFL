@@ -7,13 +7,13 @@
 import unittest
 import logging
 
-from ..authorizations.rbac import (
+from rfl.authorizations.rbac import (
     RBACPolicyRole,
     RBACPolicyDefinitionYAMLLoader,
     RBACPolicyRolesIniLoader,
     RBACPolicyManager,
 )
-from ..authorizations.errors import (
+from rfl.authorizations.errors import (
     RBACPolicyDefinitionLoadError,
     RBACPolicyRolesLoadError,
 )
