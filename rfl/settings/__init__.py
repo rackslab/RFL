@@ -106,5 +106,5 @@ class RuntimeSettings:
         self.override(RuntimeSettingsSiteLoaderIni(path=path))
 
     @classmethod
-    def definition_yaml(cls, path: Path):
+    def yaml_definition(cls, path: Path):
         return cls(SettingsDefinition(SettingsDefinitionLoaderYaml(path=path)))
