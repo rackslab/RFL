@@ -11,10 +11,10 @@ import logging
 
 from flask import request, abort, current_app
 
-from ...tokens.errors import JWTDecodeError, JWTPrivateKeyLoaderError
-from ...tokens.jwt import JWTManager
-from ...authorizations.rbac import RBACPolicyManager
-from ...authorizations.errors import (
+from rfl.tokens.jwt import JWTManager
+from rfl.tokens.errors import JWTDecodeError, JWTPrivateKeyLoaderError
+from rfl.authorizations.rbac import RBACPolicyManager
+from rfl.authorizations.errors import (
     RBACPolicyDefinitionLoadError,
     RBACPolicyRolesLoadError,
 )
