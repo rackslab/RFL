@@ -81,6 +81,15 @@ class TestSettingsDefinition(unittest.TestCase):
         ):
             SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION + "\n fail")
 
+    def test_unsupported_property(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_int"]["unknown"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Unsupported properties found for \[section2\]>param_int: unknown$",
+        ):
+            SettingsDefinition(loader)
+
     def test_default_invalid_type_int(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
         loader.content["section2"]["param_int"]["default"] = "fail"
