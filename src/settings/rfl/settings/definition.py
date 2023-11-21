@@ -62,6 +62,17 @@ class SettingsParameterDefinition:
     def __init__(self, section: str, name: str, properties: dict):
         self.section = section
         self.name = name
+
+        # Check for unsupported properties
+        unsupported_properties = list(
+            set(properties.keys()).difference(self.POSSIBLE_PROPERTIES.keys())
+        )
+        if len(unsupported_properties):
+            raise SettingsDefinitionError(
+                f"Unsupported properties found for {str(self)}: "
+                f"{','.join(unsupported_properties)}"
+            )
+
         for _property, attribute in self.POSSIBLE_PROPERTIES.items():
             value = None
             if _property in properties:
