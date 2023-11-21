@@ -57,6 +57,7 @@ class SettingsParameterDefinition:
         "path": Path,
         "bool": bool,
         "uri": urllib.parse.ParseResult,
+        "list": list,
     }
 
     def __init__(self, section: str, name: str, properties: dict):

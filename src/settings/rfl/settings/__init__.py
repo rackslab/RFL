@@ -93,6 +93,8 @@ class RuntimeSettings:
                 raise SettingsOverrideError(
                     f"Invalid boolean value '{raw}' for {parameter} in site overrides"
                 ) from err
+        elif parameter._type == "list":
+            value = loader.content[section.name].get(parameter.name).strip().split("\n")
         else:
             value = raw
         if parameter.choices is not None and value not in parameter.choices:
