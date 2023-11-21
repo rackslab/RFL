@@ -43,6 +43,11 @@ section2:
     param_bool:
         type: bool
         default: yes
+    param_list:
+        type: list
+        default:
+        - value1
+        - value2
 """
 
 VALID_SITE = """
@@ -51,6 +56,10 @@ param_str = site_value1
 
 [section2]
 param_path = /site/path/to/file
+param_list =
+  value3
+  #value4
+  value5
 """
 
 
@@ -110,6 +119,16 @@ class TestSettingsDefinition(unittest.TestCase):
         ):
             SettingsDefinition(loader)
 
+    def test_default_invalid_type_list(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_list"]["default"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Default value fail for parameter param_list has not the expected type "
+            "list$",
+        ):
+            SettingsDefinition(loader)
+
     def test_default_invalid_choice(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
         loader.content["section2"]["param_int"]["default"] = 12
@@ -142,6 +161,7 @@ class TestRuntimeSettings(unittest.TestCase):
         settings.override(site_loader)
         self.assertEqual(settings.section1.param_str, "site_value1")
         self.assertEqual(settings.section2.param_path, Path("/site/path/to/file"))
+        self.assertEqual(settings.section2.param_list, ["value3", "value5"])
 
     def test_site_override_invalid_section(self):
         def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
