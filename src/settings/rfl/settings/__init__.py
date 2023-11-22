@@ -60,6 +60,24 @@ class RuntimeSettings:
                 parameter = section.parameter(parameter_name)
                 self._override_parameter(loader, section, parameter)
 
+        # check required parameters
+        self._check_required()
+
+    def _check_required(self):
+        """Verify that all parameters declared as required in settings definition are
+        properly defined with a real value or raise SettingsOverrideError."""
+        for section in self._definition.sections:
+            for parameter in section.parameters:
+                if (
+                    parameter.required
+                    and getattr(getattr(self, parameter.section), parameter.name)
+                    is None
+                ):
+                    raise SettingsOverrideError(
+                        f"Parameter {str(parameter)} is missing but required in "
+                        "settings overrides"
+                    )
+
     def _override_parameter(
         self,
         loader: RuntimeSettingsSiteLoader,

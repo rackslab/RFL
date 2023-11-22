@@ -49,6 +49,7 @@ class SettingsParameterDefinition:
         "choices": "choices",
         "doc": "doc",
         "ex": "example",
+        "required": "required",
     }
     EXPECTED_TYPES = {
         "str": str,
@@ -99,6 +100,12 @@ class SettingsParameterDefinition:
                     f"Default value {self.default} for parameter {self.name} is not "
                     f"one of possible choices {self.choices}"
                 )
+        if self.required is None:
+            self.required = False
+        elif not isinstance(self.required, bool):
+            raise SettingsDefinitionError(
+                f"Invalid boolean value of {str(self)} required property"
+            )
 
     def __str__(self):
         return f"[{self.section}]>{self.name}"
