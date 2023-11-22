@@ -80,6 +80,13 @@ class SettingsParameterDefinition:
             if _property in properties:
                 value = properties[_property]
             setattr(self, attribute, value)
+
+        # Check the type of defined parameter is actually supported
+        if self._type not in self.EXPECTED_TYPES:
+            raise SettingsDefinitionError(
+                f"Unsupported type {self._type} for {str(self)}"
+            )
+
         # If the default value is defined, convert advanced type and ensure default
         # value matches type if defined.
         if self.default is not None:
