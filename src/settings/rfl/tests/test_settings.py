@@ -48,6 +48,9 @@ section2:
         default:
         - value1
         - value2
+    param_required:
+        type: str
+        required: true
 """
 
 VALID_SITE = """
@@ -60,6 +63,7 @@ param_list =
   value3
   #value4
   value5
+param_required = required_value
 """
 
 
@@ -96,6 +100,15 @@ class TestSettingsDefinition(unittest.TestCase):
         with self.assertRaisesRegex(
             SettingsDefinitionError,
             "^Unsupported properties found for \[section2\]>param_int: unknown$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_required_not_bool(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_required"]["required"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Invalid boolean value of \[section2\]>param_required required property$",
         ):
             SettingsDefinition(loader)
 
@@ -238,5 +251,18 @@ class TestRuntimeSettings(unittest.TestCase):
             SettingsOverrideError,
             "^Value 12 for parameter \[section2\]>param_int in site overrides is not "
             "one of possible choices \[10, 100, 500\]$",
+        ):
+            settings.override(site_loader)
+
+    def test_site_override_undefined_required(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        del site_loader.content["section2"]["param_required"]
+        with self.assertRaisesRegex(
+            SettingsOverrideError,
+            "^Parameter \[section2\]>param_required is missing but required in "
+            "settings overrides$",
         ):
             settings.override(site_loader)
