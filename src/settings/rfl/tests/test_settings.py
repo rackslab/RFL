@@ -103,6 +103,15 @@ class TestSettingsDefinition(unittest.TestCase):
         ):
             SettingsDefinition(loader)
 
+    def test_unsupported_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_int"]["type"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Unsupported type fail for \[section2\]>param_int$",
+        ):
+            SettingsDefinition(loader)
+
     def test_required_not_bool(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
         loader.content["section2"]["param_required"]["required"] = "fail"
