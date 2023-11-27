@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: System :: Systems Administration",
 ]
-readme = "README.md"    
+readme = "README.md"
 
 [project.urls]
 "Homepage" = "https://github.com/rackslab/RFL"
