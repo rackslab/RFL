@@ -109,7 +109,7 @@ class RBACPolicyRolesIniLoader(RBACPolicyRolesLoader):
                     "settings"
                 )
         except configparser.Error as err:
-            raise RBACPolicyLoadError(str(err)) from err
+            raise RBACPolicyDefinitionLoadError(str(err)) from err
         self.roles = set()
         if preload:
             self._load()
@@ -120,8 +120,7 @@ class RBACPolicyRolesIniLoader(RBACPolicyRolesLoader):
             roles = self.content.options("roles")
         except configparser.NoSectionError as err:
             raise RBACPolicyRolesLoadError(
-                f"Section roles to define roles members is not defined in INI "
-                "content"
+                "Section roles to define roles members is not defined in INI content"
             ) from err
         for role in roles:
             try:
