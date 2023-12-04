@@ -37,12 +37,12 @@ def _get_token_user(request):
 
     if not auth.startswith("Bearer "):
         logger.warning("Malformed authorization header found in request")
-        abort(403, "No valid token provided")
+        abort(401, "No valid token provided")
     request.token = auth.split(" ", 1)[1]
     try:
         request.user = current_app.jwt.decode(request.token)
     except JWTDecodeError as err:
-        abort(403, str(err))
+        abort(401, str(err))
 
 
 def check_jwt(view):
