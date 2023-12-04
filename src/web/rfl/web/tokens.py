@@ -45,6 +45,18 @@ def _get_token_user(request):
         abort(403, str(err))
 
 
+def check_jwt(view):
+    """Decorator for Flask views functions check for valid authentification JWT
+    token and permission in policy."""
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        _get_token_user(request)
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
 def rbac_action(action):
     """Decorator for Flask views functions check for valid authentification JWT
     token and permission in policy."""
