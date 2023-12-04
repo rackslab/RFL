@@ -28,19 +28,21 @@ def _get_token_user(request):
     Return None if the authorization header is not found, which is assimilated to
     anonymous user."""
 
+    request.token = None
+    request.user = None
+
     auth = request.headers.get("Authorization")
     if auth is None:
-        return None
+        return
 
     if not auth.startswith("Bearer "):
         logger.warning("Malformed authorization header found in request")
         abort(403, "No valid token provided")
-    token = auth.split(" ", 1)[1]
+    request.token = auth.split(" ", 1)[1]
     try:
-        user = current_app.jwt.decode(token)
+        request.user = current_app.jwt.decode(request.token)
     except JWTDecodeError as err:
         abort(403, str(err))
-    return user
 
 
 def rbac_action(action):
@@ -50,29 +52,31 @@ def rbac_action(action):
     def inner_decorator(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
-            user = _get_token_user(request)
+            _get_token_user(request)
             # verify unauthorized anonymous access
-            if user is None and (
+            if request.user is None and (
                 not current_app.policy.allow_anonymous
                 or not current_app.policy.allowed_anonymous_action(action)
             ):
                 logger.warning("Unauthorized anonymous access to action %s", action)
                 abort(
                     403,
-                    f"anonymous role is not allowed to perform action {action}",
+                    f"Anonymous role is not allowed to perform action {action}",
                 )
             # verify real user access
-            elif user is not None and not current_app.policy.allowed_user_action(
-                user, [], action
+            elif (
+                request.user is not None
+                and not current_app.policy.allowed_user_action(request.user, [], action)
             ):
                 logger.warning(
                     "Unauthorized access from user %s to action %s",
-                    user,
+                    request.user,
                     action,
                 )
                 abort(
                     403,
-                    f"user {user} is not allowed to perform action " f"{action}",
+                    f"user {request.user} is not allowed to perform action "
+                    f"{action}",
                 )
             return view(*args, **kwargs)
 
