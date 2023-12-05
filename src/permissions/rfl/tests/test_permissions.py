@@ -7,13 +7,14 @@
 import unittest
 import logging
 
-from rfl.authorizations.rbac import (
+from rfl.authentication.user import AuthenticatedUser
+from rfl.permissions.rbac import (
     RBACPolicyRole,
     RBACPolicyDefinitionYAMLLoader,
     RBACPolicyRolesIniLoader,
     RBACPolicyManager,
 )
-from rfl.authorizations.errors import (
+from rfl.permissions.errors import (
     RBACPolicyDefinitionLoadError,
     RBACPolicyRolesLoadError,
 )
@@ -206,53 +207,32 @@ class TestRBACPolicyManager(unittest.TestCase):
 
         # Members of users group must have access to base and user roles actions but not
         # to operator role actions
-        self.assertEqual(
-            manager.allowed_user_action("FAKE", ["users"], "view-users"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("FAKE", ["users"], "launch-tasks"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("FAKE", ["users"], "edit-tasks"), False
-        )
+        user = AuthenticatedUser(login="FAKE", groups=["users"])
+        self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
+        self.assertEqual(manager.allowed_user_action(user, "launch-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "edit-tasks"), False)
 
         # Mike (user) must have access to user role actions but not to operator role
         # actions.
-        self.assertEqual(
-            manager.allowed_user_action("mike", ["FAKE"], "launch-tasks"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("mike", ["FAKE"], "edit-tasks"), False
-        )
+        user = AuthenticatedUser(login="mike", groups=["FAKE"])
+        self.assertEqual(manager.allowed_user_action(user, "launch-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "edit-tasks"), False)
 
         # Members of admins group must have access to all actions
-        self.assertEqual(
-            manager.allowed_user_action("FAKE", ["admins"], "view-users"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("FAKE", ["admins"], "edit-tasks"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("FAKE", ["admins"], "add-users"), True
-        )
+        user = AuthenticatedUser(login="FAKE", groups=["admins"])
+        self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
+        self.assertEqual(manager.allowed_user_action(user, "edit-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "add-users"), True)
 
         # John (admin) must have access to all actions except those not declared.
-        self.assertEqual(
-            manager.allowed_user_action("john", ["FAKE"], "view-users"), True
-        )
-        self.assertEqual(manager.allowed_user_action("john", ["FAKE"], "fail"), False)
+        user = AuthenticatedUser(login="john", groups=["FAKE"])
+        self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
+        self.assertEqual(manager.allowed_user_action(user, "fail"), False)
 
         # Lisa (user + operator) must have access to base, user and operator roles
         # actions but not to admin role actions.
-        self.assertEqual(
-            manager.allowed_user_action("lisa", ["users"], "edit-tasks"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("lisa", ["users"], "view-users"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("lisa", ["users"], "launch-tasks"), True
-        )
-        self.assertEqual(
-            manager.allowed_user_action("lisa", ["users"], "add-users"), False
-        )
+        user = AuthenticatedUser(login="lisa", groups=["users"])
+        self.assertEqual(manager.allowed_user_action(user, "edit-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
+        self.assertEqual(manager.allowed_user_action(user, "launch-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "add-users"), False)
