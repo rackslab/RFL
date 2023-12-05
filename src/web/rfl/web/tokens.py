@@ -11,8 +11,8 @@ import logging
 
 from flask import request, abort, current_app
 
-from rfl.tokens.jwt import JWTManager
-from rfl.tokens.errors import JWTDecodeError, JWTPrivateKeyLoaderError
+from rfl.authentication.jwt import JWTManager
+from rfl.authentication.errors import JWTDecodeError, JWTPrivateKeyLoaderError
 from rfl.authorizations.rbac import RBACPolicyManager
 from rfl.authorizations.errors import (
     RBACPolicyDefinitionLoadError,

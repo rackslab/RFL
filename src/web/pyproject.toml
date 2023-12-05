@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
     "RFL.authorizations",
-    "RFL.tokens"
+    "RFL.authentication"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
