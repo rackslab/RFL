@@ -202,6 +202,15 @@ class RBACPolicyManager:
         logger.debug("Found the following roles for user %s: %s", user, roles)
         return roles
 
+    def roles_actions(self, user: str, groups: list[str]) -> tuple[set[str], set[str]]:
+        """Return tuple with set of role names and set of allowed actions for a
+        particular user and list of groups membership."""
+        roles = self._user_roles(user, groups)
+        actions = set()
+        for role in roles:
+            actions.update(role.actions)
+        return (set([role.name for role in roles]), actions)
+
     def allowed_anonymous_action(self, action: str) -> bool:
         """Return True if the given action is allowed for anonymous role, False
         otherwise."""
