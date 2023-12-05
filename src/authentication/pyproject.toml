@@ -15,6 +15,7 @@ authors = [
 dependencies = [
     "RFL.core",
     "PyJWT",
+    "python-ldap",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

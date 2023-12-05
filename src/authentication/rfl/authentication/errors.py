@@ -7,7 +7,15 @@
 from rfl.core.errors import RFLError
 
 
-class JWTError(RFLError):
+class AuthenticationError(RFLError):
+    pass
+
+
+class LDAPAuthenticationError(AuthenticationError):
+    pass
+
+
+class JWTError(AuthenticationError):
     pass
 
 
