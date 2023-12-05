@@ -11,6 +11,7 @@ from pathlib import Path
 
 import jwt
 
+from .user import AuthenticatedUser
 from .errors import JWTPrivateKeyLoaderError, JWTDecodeError, JWTEncodeError
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ class JWTManager:
         self.algorithm = algorithm
         self.key = loader.key
 
-    def decode(self, token) -> str:
+    def decode(self, token) -> AuthenticatedUser:
         """Decode the given token with the encryption key an returns the user of
         this token."""
         try:
@@ -104,9 +105,9 @@ class JWTManager:
             raise JWTDecodeError("Token audience is invalid") from err
         except jwt.exceptions.DecodeError as err:
             raise JWTDecodeError(f"Unable to decode token: {str(err)}") from err
-        return payload["sub"], payload["groups"]
+        return AuthenticatedUser(login=payload["sub"], groups=payload["groups"])
 
-    def generate(self, user: str, groups: list[str], duration: int) -> str:
+    def generate(self, user: AuthenticatedUser, duration: int) -> str:
         """Returns a JWT token for the given user, signed with the encryption
         key, for the configured audience and valid for the given duration."""
         try:
@@ -115,8 +116,8 @@ class JWTManager:
                     "iat": datetime.now(tz=timezone.utc),
                     "exp": datetime.now(tz=timezone.utc) + timedelta(days=duration),
                     "aud": self.audience,
-                    "sub": user,
-                    "groups": groups,
+                    "sub": user.login,
+                    "groups": user.groups,
                 },
                 self.key,
                 algorithm=self.algorithm,
