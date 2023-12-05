@@ -20,9 +20,11 @@ except ImportError:
     # dropped in Fatbuildr.
     from cached_property import cached_property
 
+from rfl.authentication.user import AuthenticatedUser
 import yaml
 
 from .errors import RBACPolicyDefinitionLoadError, RBACPolicyRolesLoadError
+
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +188,7 @@ class RBACPolicyManager:
                 return True
         return False
 
-    def _user_roles(self, user: str, groups: list[str]) -> set[str]:
+    def _user_roles(self, user: AuthenticatedUser) -> set[str]:
         """Return the set of roles associated to a given user name."""
         roles = set()
         for role in self.loader.roles:
@@ -195,17 +197,17 @@ class RBACPolicyManager:
                 roles.add(role)
             else:
                 for member in role.members:
-                    if member == user or (
-                        member.startswith("@") and member[1:] in groups
+                    if member == user.login or (
+                        member.startswith("@") and member[1:] in user.groups
                     ):
                         roles.add(role)
         logger.debug("Found the following roles for user %s: %s", user, roles)
         return roles
 
-    def roles_actions(self, user: str, groups: list[str]) -> tuple[set[str], set[str]]:
+    def roles_actions(self, user: AuthenticatedUser) -> tuple[set[str], set[str]]:
         """Return tuple with set of role names and set of allowed actions for a
         particular user and list of groups membership."""
-        roles = self._user_roles(user, groups)
+        roles = self._user_roles(user)
         actions = set()
         for role in roles:
             actions.update(role.actions)
@@ -219,10 +221,10 @@ class RBACPolicyManager:
                 return True
         return False
 
-    def allowed_user_action(self, user: str, groups: list[str], action: str) -> bool:
+    def allowed_user_action(self, user: AuthenticatedUser, action: str) -> bool:
         """Return True if the given action is allowed for the given user, False
         otherwise."""
-        for role in self._user_roles(user, groups):
+        for role in self._user_roles(user):
             if action in role.actions:
                 logger.debug(
                     "Token for user %s is permitted to perform action %s",
