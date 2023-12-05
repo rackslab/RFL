@@ -30,6 +30,7 @@ def _get_token_user(request):
 
     request.token = None
     request.user = None
+    request.groups = []
 
     auth = request.headers.get("Authorization")
     if auth is None:
@@ -40,7 +41,7 @@ def _get_token_user(request):
         abort(401, "No valid token provided")
     request.token = auth.split(" ", 1)[1]
     try:
-        request.user = current_app.jwt.decode(request.token)
+        request.user, request.groups = current_app.jwt.decode(request.token)
     except JWTDecodeError as err:
         abort(401, str(err))
 
@@ -78,7 +79,9 @@ def rbac_action(action):
             # verify real user access
             elif (
                 request.user is not None
-                and not current_app.policy.allowed_user_action(request.user, [], action)
+                and not current_app.policy.allowed_user_action(
+                    request.user, request.groups, action
+                )
             ):
                 logger.warning(
                     "Unauthorized access from user %s to action %s",
