@@ -59,7 +59,7 @@ class JWTPrivateKeyFileLoader:
                     raise JWTPrivateKeyLoaderError(
                         "Permission denied to create key parent directory "
                         f"{self.path.parent}"
-                    )
+                    ) from err
             else:
                 raise JWTPrivateKeyLoaderError(
                     f"Token private key parent directory {self.path.parent} not found"
@@ -104,9 +104,9 @@ class JWTManager:
             raise JWTDecodeError("Token audience is invalid") from err
         except jwt.exceptions.DecodeError as err:
             raise JWTDecodeError(f"Unable to decode token: {str(err)}") from err
-        return payload["sub"]
+        return payload["sub"], payload["groups"]
 
-    def generate(self, user: str, duration: int) -> str:
+    def generate(self, user: str, groups: list[str], duration: int) -> str:
         """Returns a JWT token for the given user, signed with the encryption
         key, for the configured audience and valid for the given duration."""
         try:
@@ -116,6 +116,7 @@ class JWTManager:
                     "exp": datetime.now(tz=timezone.utc) + timedelta(days=duration),
                     "aud": self.audience,
                     "sub": user,
+                    "groups": groups,
                 },
                 self.key,
                 algorithm=self.algorithm,
