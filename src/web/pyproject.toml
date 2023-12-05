@@ -13,7 +13,7 @@ authors = [
     {name = "Rémi Palancher", email = "remi@rackslab.io"},
 ]
 dependencies = [
-    "RFL.authorizations",
+    "RFL.permissions",
     "RFL.authentication"
 ]
 classifiers = [

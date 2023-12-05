@@ -13,8 +13,8 @@ from flask import request, abort, current_app
 
 from rfl.authentication.jwt import JWTManager
 from rfl.authentication.errors import JWTDecodeError, JWTPrivateKeyLoaderError
-from rfl.authorizations.rbac import RBACPolicyManager
-from rfl.authorizations.errors import (
+from rfl.permissions.rbac import RBACPolicyManager
+from rfl.permissions.errors import (
     RBACPolicyDefinitionLoadError,
     RBACPolicyRolesLoadError,
 )
