@@ -6,8 +6,9 @@
 
 import unittest
 
-from rfl.tokens.jwt import JWTPrivateKeyFileLoader, JWTManager
-from rfl.tokens.errors import JWTEncodeError, JWTDecodeError
+from rfl.authentication.user import AuthenticatedUser
+from rfl.authentication.jwt import JWTPrivateKeyFileLoader, JWTManager
+from rfl.authentication.errors import JWTEncodeError, JWTDecodeError
 
 PRIVATE_KEY = b"TEST_PRIVATE_KEY"
 
@@ -16,8 +17,8 @@ class TestJWTManager(unittest.TestCase):
     def test_generate_decode(self):
         loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
         manager = JWTManager("test", "HS256", loader)
-        token = manager.generate("user", 1)
-        self.assertEqual(manager.decode(token), "user")
+        token = manager.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
+        self.assertEqual(manager.decode(token).login, "user")
 
     def test_invalid_algo(self):
         loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
@@ -26,7 +27,7 @@ class TestJWTManager(unittest.TestCase):
             JWTEncodeError,
             "^JWT token encode error: Algorithm not supported$",
         ):
-            manager.generate("user", 1)
+            manager.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
 
     def test_invalid_token(self):
         loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
@@ -42,7 +43,7 @@ class TestJWTManager(unittest.TestCase):
         manager1 = JWTManager("test", "HS256", loader1)
         loader2 = JWTPrivateKeyFileLoader(value=b"OTHER_PRIVATE_KEY")
         manager2 = JWTManager("test", "HS256", loader2)
-        token = manager1.generate("user", 1)
+        token = manager1.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
         with self.assertRaisesRegex(
             JWTDecodeError,
             "^Token signature is invalid$",
@@ -53,7 +54,7 @@ class TestJWTManager(unittest.TestCase):
         loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
         manager1 = JWTManager("test1", "HS256", loader)
         manager2 = JWTManager("test2", "HS256", loader)
-        token = manager1.generate("user", 1)
+        token = manager1.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
         with self.assertRaisesRegex(
             JWTDecodeError,
             "^Token audience is invalid$",
