@@ -3,9 +3,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "RFL.tokens"
+name = "RFL.authentication"
 version = "0.0.1"
-description = "Rackslab Foundation Library: tokens package"
+description = "Rackslab Foundation Library: authentication package"
 license = {text = "GPLv3+"}
 requires-python = ">=3.6"
 keywords = ["utility", "basic"]
@@ -31,4 +31,4 @@ readme = "README.md"
 "Bug Tracker" = "https://github.com/rackslab/RFL/issues"
 
 [tool.setuptools.packages.find]
-include = ["rfl.tokens*"]
+include = ["rfl.authentication*"]

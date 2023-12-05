@@ -1,3 +1,3 @@
-# RFL: tokens package
+# RFL: authentication package
 
 Generate and validate JWT tokens.
