@@ -11,6 +11,7 @@ depends on the Python subpackage:
 | `authentication` | `auth`     |
 | `build`          | `build`    |
 | `core`           | `core`     |
+| `log`            | `log`      |
 | `permissions`    | `perms`    |
 | `settings`       | `settings` |
 | `web`            | `web`      |

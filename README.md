@@ -9,10 +9,11 @@ RFL is actually a Python namespaces for multiples packages managed in this
 single repository. The current packages are the following:
 
 * `core`: Core library used by other packages.
+* `authentication`: Manage authentication with LDAP and JWT tokens.
 * `build`: Utilities to help backport builds of Python projects.
+* `log`: Setup logger.
+* `permissions`: Manage permissions with RBAC policy.
 * `settings`: Manage configuration files settings.
-* `authorizations`: Manage authorizations with RBAC policy.
-* `tokens`: Generate and validate JWT tokens.
 * `web`: Predefined Flask application templates.
 
 Each package has its own dedicated subdirectory in the `src` directory.
