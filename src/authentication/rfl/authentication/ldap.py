@@ -52,7 +52,7 @@ class LDAPAuthentifier:
     def _get_user_info(
         self, connection: ldap.ldapobject.LDAPObject, user_dn: str
     ) -> tuple[str, int]:
-        # Get full username
+        """Return fullname and gidNumber from the provided user DN."""
         search_filter = f"(objectClass={self.user_class})"
         try:
             results = connection.search_s(
@@ -92,7 +92,8 @@ class LDAPAuthentifier:
     def _get_groups(
         self, connection: ldap.ldapobject.LDAPObject, user: str, gidNumber: int
     ) -> list[str]:
-        """Support RFC 2307."""
+        """Return the list of groups whose provided user is member, including its
+        gidNumber. This function support RFC 2307 (aka. nis schema)."""
         search_filter = (
             "(&(objectClass=posixGroup)"
             f"(|(memberUid={user})(gidNumber={gidNumber})))"
@@ -131,6 +132,8 @@ class LDAPAuthentifier:
             ) from err
 
     def login(self, user: str, password: str) -> AuthenticatedUser:
+        """Verify provided user/password are valid and return the corresponding
+        AuthenticatedUser."""
         fullname = None
         groups = None
         connection = self.connection()
