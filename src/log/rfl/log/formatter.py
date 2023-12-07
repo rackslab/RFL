@@ -6,6 +6,7 @@
 
 import logging
 
+
 class ANSIStyle:
     def __init__(self, fg, bg=None):
         self.fg = fg

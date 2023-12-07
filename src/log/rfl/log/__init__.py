@@ -9,7 +9,8 @@ import logging
 
 from .formatter import TTYFormatter
 
-__all__ = [ TTYFormatter ]
+__all__ = [TTYFormatter]
+
 
 def setup_logger(
     formatter: logging.Formatter,
