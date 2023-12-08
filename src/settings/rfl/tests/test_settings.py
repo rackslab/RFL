@@ -93,6 +93,11 @@ class TestSettingsDefinition(unittest.TestCase):
             SettingsDefinitionError, "^Invalid YAML settings definition: "
         ):
             SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION + "\n fail")
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^YAML scanner error: mapping values are not allowed here.*",
+        ):
+            SettingsDefinitionLoaderYaml(raw="fail: again: ")
 
     def test_unsupported_property(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
