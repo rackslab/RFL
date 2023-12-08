@@ -25,10 +25,10 @@ class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
                 try:
                     with open(path) as fh:
                         self.content = yaml.safe_load(fh)
-                except FileNotFoundError:
+                except FileNotFoundError as err:
                     raise SettingsDefinitionError(
                         f"Settings definition file {path} not found"
-                    )
+                    ) from err
             else:
                 raise SettingsDefinitionError(
                     "Either a raw string value or a path must be given to load YAML "
@@ -38,6 +38,8 @@ class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
             raise SettingsDefinitionError(
                 f"Invalid YAML settings definition: {str(err)}"
             ) from err
+        except yaml.scanner.ScannerError as err:
+            raise SettingsDefinitionError(f"YAML scanner error: {str(err)}") from err
 
 
 class SettingsParameterDefinition:
