@@ -47,6 +47,7 @@ class SettingsParameterDefinition:
     # object attributes names.
     POSSIBLE_PROPERTIES = {
         "type": "_type",
+        "content": "content",
         "default": "default",
         "choices": "choices",
         "doc": "doc",
@@ -89,31 +90,70 @@ class SettingsParameterDefinition:
                 f"Unsupported type {self._type} for {str(self)}"
             )
 
-        # If the default value is defined, convert advanced type and ensure default
-        # value matches type if defined.
+        # Check content property is defined for list and check content type is actually
+        # supported.
+        if self._type == "list":
+            if "content" not in properties:
+                raise SettingsDefinitionError(
+                    f"List content type for parameter {str(self)} must be defined"
+                )
+            elif self.content not in set(self.EXPECTED_TYPES.keys()) - {"list"}:
+                raise SettingsDefinitionError(
+                    f"Unsupported list content type {self.content} for {str(self)}"
+                )
+        # Check content property is not defined if not list
+        if "content" in properties and self._type != "list":
+            raise SettingsDefinitionError(
+                f"Content property is forbidden for parameter {str(self)} with type "
+                f"{self._type}"
+            )
+
+        # If the default value is defined, convert to the expected type and validate it
+        # is a valid choice.
         if self.default is not None:
-            # Advanced types such as path and uri are read as native strings, they must
-            # be converted manually to the expected type.
-            if self._type == "path":
-                self.default = Path(self.default)
-            elif self._type == "uri":
-                self.default = urllib.parse.urlparse(self.default)
-            if not isinstance(self.default, self.EXPECTED_TYPES[self._type]):
-                raise SettingsDefinitionError(
-                    f"Default value {self.default} for parameter {self.name} has not "
-                    f"the expected type {self._type}"
-                )
-            # Check default is present among possible choices
-            if self.choices is not None and self.default not in self.choices:
-                raise SettingsDefinitionError(
-                    f"Default value {self.default} for parameter {self.name} is not "
-                    f"one of possible choices {self.choices}"
-                )
+            if self._type == "list":
+                if not isinstance(self.default, list):
+                    raise SettingsDefinitionError(
+                        f"Default value {self.default} for parameter {str(self)} is "
+                        "not a valid list"
+                    )
+                self.default = [
+                    self._load_default(self.content, default)
+                    for default in self.default
+                ]
+                for item in self.default:
+                    self._validate_choice(item)
+            else:
+                self.default = self._load_default(self._type, self.default)
+                self._validate_choice(self.default)
+
         if self.required is None:
             self.required = False
         elif not isinstance(self.required, bool):
             raise SettingsDefinitionError(
                 f"Invalid boolean value of {str(self)} required property"
+            )
+
+    def _load_default(self, _type, default):
+        """Verify default has the expected type and convert to advanded type if
+        needed."""
+        if _type == "path":
+            return Path(default)
+        elif _type == "uri":
+            return urllib.parse.urlparse(default)
+        if not isinstance(default, self.EXPECTED_TYPES[_type]):
+            raise SettingsDefinitionError(
+                f"Default value {default} for parameter {str(self)} has not "
+                f"the expected type {_type}"
+            )
+        return default
+
+    def _validate_choice(self, default):
+        """Check default is a valid choice or raise SettingsDefinitionError."""
+        if self.choices is not None and default not in self.choices:
+            raise SettingsDefinitionError(
+                f"Default value {default} for parameter {str(self)} is not "
+                f"one of possible choices {self.choices}"
             )
 
     def __str__(self):

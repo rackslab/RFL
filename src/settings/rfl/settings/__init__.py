@@ -84,43 +84,64 @@ class RuntimeSettings:
         section: SettingsSectionDefinition,
         parameter: SettingsParameterDefinition,
     ) -> None:
-        # check type, choices and convert to advanced types
+        """Load value from INI file, convert it to expected type, verify it is a valid
+        choice and set corresponding object attribute. Special logic is applied for list
+        to iterate over the items."""
         raw = loader.content[section.name].get(parameter.name)
-        if parameter._type == "path":
-            value = Path(raw)
-        elif parameter._type == "uri":
-            value = urllib.parse.urlparse(raw)
-        elif parameter._type == "int":
+        if parameter._type == "list":
+            value = [
+                self._load_parameter_value(parameter, parameter.content, raw)
+                for raw in raw.strip().split("\n")
+            ]
+            for item in value:
+                self._validate_choice(parameter, item)
+        else:
+            value = self._load_parameter_value(parameter, parameter._type, raw)
+            self._validate_choice(parameter, value)
+        setattr(getattr(self, section.name), parameter.name, value)
+
+    def _load_parameter_value(self, parameter, _type: str, raw: str):
+        """Try to convert raw value to expected type or raise SettingsOverrideError."""
+        if _type == "path":
+            # Converting a string to a pathlib.Path basically never fails.
+            return Path(raw)
+        elif _type == "uri":
+            # Converting a string to a urllib.ParseResult basically never fails.
+            return urllib.parse.urlparse(raw)
+        elif _type == "int":
             try:
-                value = int(raw)
+                return int(raw)
             except ValueError as err:
                 raise SettingsOverrideError(
                     f"Invalid integer value '{raw}' for {parameter} in site overrides"
                 ) from err
-        elif parameter._type == "float":
+        elif _type == "float":
             try:
-                value = float(raw)
+                return float(raw)
             except ValueError as err:
                 raise SettingsOverrideError(
                     f"Invalid float value '{raw}' for {parameter} in site overrides"
                 ) from err
-        elif parameter._type == "bool":
-            try:
-                value = loader.content[section.name].getboolean(parameter.name)
-            except ValueError as err:
+        elif _type == "bool":
+            if raw.lower() in ["1", "yes", "true", "on"]:
+                return True
+            elif raw.lower() in ["0", "no", "false", "off"]:
+                return False
+            else:
                 raise SettingsOverrideError(
                     f"Invalid boolean value '{raw}' for {parameter} in site overrides"
-                ) from err
-        elif parameter._type == "list":
-            value = loader.content[section.name].get(parameter.name).strip().split("\n")
+                )
         else:
-            value = raw
+            # Return unmodified value
+            return raw
+
+    def _validate_choice(self, parameter, value):
+        """Validate value is in parameter choices or raise SettingsOverrideError."""
         if parameter.choices is not None and value not in parameter.choices:
             raise SettingsOverrideError(
                 f"Value {value} for parameter {parameter} in site overrides is "
                 f"not one of possible choices {parameter.choices}"
             )
-        setattr(getattr(self, section.name), parameter.name, value)
 
     def override_ini(self, path: Path) -> None:
         self.override(RuntimeSettingsSiteLoaderIni(path=path))
