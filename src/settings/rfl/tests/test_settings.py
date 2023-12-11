@@ -45,6 +45,7 @@ section2:
         default: yes
     param_list:
         type: list
+        content: str
         default:
         - value1
         - value2
@@ -131,8 +132,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_int"]["default"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value fail for parameter param_int has not the expected type "
-            "int$",
+            "^Default value fail for parameter \[section2\]>param_int has not the "
+            "expected type int$",
         ):
             SettingsDefinition(loader)
 
@@ -141,18 +142,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_bool"]["default"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value fail for parameter param_bool has not the expected type "
-            "bool$",
-        ):
-            SettingsDefinition(loader)
-
-    def test_default_invalid_type_list(self):
-        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
-        loader.content["section2"]["param_list"]["default"] = "fail"
-        with self.assertRaisesRegex(
-            SettingsDefinitionError,
-            "^Default value fail for parameter param_list has not the expected type "
-            "list$",
+            "^Default value fail for parameter \[section2\]>param_bool has not the "
+            "expected type bool$",
         ):
             SettingsDefinition(loader)
 
@@ -161,8 +152,72 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_int"]["default"] = 12
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value 12 for parameter param_int is not one of possible choices "
-            "\[10, 100, 500\]$",
+            "^Default value 12 for parameter \[section2\]>param_int is not one of "
+            "possible choices \[10, 100, 500\]$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_default_invalid_type_list(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_list"]["default"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Default value fail for parameter \[section2\]>param_list is not a valid "
+            "list$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_type_list_without_content(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        del loader.content["section2"]["param_list"]["content"]
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^List content type for parameter \[section2\]>param_list must be defined$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_type_list_invalid_content_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_list"]["content"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Unsupported list content type fail for \[section2\]>param_list$",
+        ):
+            SettingsDefinition(loader)
+        loader.content["section2"]["param_list"]["content"] = "list"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Unsupported list content type list for \[section2\]>param_list$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_type_content_on_other_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_list"]["type"] = "str"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Content property is forbidden for parameter \[section2\]>param_list with "
+            "type str$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_type_list_invalid_default_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_list"]["content"] = "bool"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Default value value1 for parameter \[section2\]>param_list has not the "
+            "expected type bool$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_type_list_invalid_choice(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_list"]["choices"] = ["value1", "value3"]
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            "^Default value value2 for parameter \[section2\]>param_list is not one of "
+            "possible choices \['value1', 'value3'\]$",
         ):
             SettingsDefinition(loader)
 
@@ -278,5 +333,32 @@ class TestRuntimeSettings(unittest.TestCase):
             SettingsOverrideError,
             "^Parameter \[section2\]>param_required is missing but required in "
             "settings overrides$",
+        ):
+            settings.override(site_loader)
+
+    def test_site_override_list_invalid_content_type(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        def_loader.content["section2"]["param_list"]["content"] = "int"
+        def_loader.content["section2"]["param_list"]["default"] = [2, 5]
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        with self.assertRaisesRegex(
+            SettingsOverrideError,
+            "^Invalid integer value 'value3' for \[section2\]>param_list in site "
+            "overrides$",
+        ):
+            settings.override(site_loader)
+
+    def test_site_override_list_invalid_choice(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        def_loader.content["section2"]["param_list"]["choices"] = ["value1", "value2"]
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        with self.assertRaisesRegex(
+            SettingsOverrideError,
+            "^Value value3 for parameter \[section2\]>param_list in site overrides is "
+            "not one of possible choices \['value1', 'value2'\]$",
         ):
             settings.override(site_loader)
