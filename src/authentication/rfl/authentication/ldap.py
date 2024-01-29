@@ -158,3 +158,62 @@ class LDAPAuthentifier:
         finally:
             connection.unbind_s()
         return AuthenticatedUser(login=user, fullname=fullname, groups=groups)
+
+    def _list_user_dn(self, connection):
+        """Return list of all users name/pairs pairs in LDAP directory."""
+        search_filter = f"(objectClass={self.user_class})"
+        try:
+            results = connection.search_s(
+                self.user_base,
+                ldap.SCOPE_SUBTREE,
+                search_filter,
+                ["uid"],
+            )
+        except ldap.NO_SUCH_OBJECT as err:
+            raise LDAPAuthenticationError(
+                f"Unable to find user base {self.user_base}"
+            ) from err
+        logger.debug(
+            "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
+            self.group_base,
+            search_filter,
+            str(results),
+        )
+        if not len(results):
+            logger.warning(
+                "Unable to find users in LDAP in base %s subtree",
+                self.user_base,
+            )
+        try:
+            return [(result[1]["uid"][0].decode(), result[0]) for result in results]
+        except KeyError as err:
+            raise LDAPAuthenticationError(
+                "Unable to extract user uid from user entries"
+            ) from err
+
+    def users(self, with_groups: bool = False) -> list[AuthenticatedUser]:
+        """Return list of AuthicatedUser available in LDAP directory. If with_groups is
+        True, the groups attribute of the AuthenticatedUsers is also initialized with
+        the list of their groups."""
+        result = []
+        connection = self.connection()
+        try:
+            for (user, user_dn) in self._list_user_dn(connection):
+                fullname, gidNumber = self._get_user_info(connection, user_dn)
+                groups = []
+                if with_groups:
+                    groups = self._get_groups(connection, user, gidNumber)
+                result.append(
+                    AuthenticatedUser(login=user, fullname=fullname, groups=groups)
+                )
+        except ldap.SERVER_DOWN as err:
+            raise LDAPAuthenticationError(
+                f"LDAP server {self.uri.geturl()} is unreachable"
+            ) from err
+        except ldap.UNWILLING_TO_PERFORM as err:
+            raise LDAPAuthenticationError(
+                f"LDAP server is unwilling to perform: {str(err)}"
+            ) from err
+        finally:
+            connection.unbind_s()
+        return result
