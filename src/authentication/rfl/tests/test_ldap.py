@@ -113,7 +113,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_get_user_info.assert_called_once_with(
             mock_ldap_object, "uid=john,ou=people,dc=corp,dc=org"
         )
-        mock_get_groups.assert_called_once_with(mock_ldap_object, "john", 42)
+        mock_get_groups.assert_called_once_with(
+            mock_ldap_object, "john", "uid=john,ou=people,dc=corp,dc=org", 42
+        )
 
         # verify return value
         self.assertEqual(user.login, "john")
@@ -229,7 +231,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
             ("cn=scientists,ou=groups,dc=corp,dc=org", {"cn": [b"scientists"]}),
             ("cn=biology,ou=groups,dc=corp,dc=org", {"cn": [b"biology"]}),
         ]
-        groups = self.authentifier._get_groups(connection, "john", 42)
+        groups = self.authentifier._get_groups(
+            connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
+        )
         self.assertEqual(groups, ["scientists", "biology"])
 
     def test_groups_base_not_found(self):
@@ -241,7 +245,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
             LDAPAuthenticationError,
             f"^Unable to find group base {self.authentifier.group_base}$",
         ):
-            self.authentifier._get_groups(connection, "john", 42)
+            self.authentifier._get_groups(
+                connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
+            )
 
     def test_get_groups_name_attribute_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
@@ -257,7 +263,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
             LDAPAuthenticationError,
             "^Unable to extract group name with fail attribute from group entries$",
         ):
-            self.authentifier._get_groups(connection, "john", 42)
+            self.authentifier._get_groups(
+                connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
+            )
 
     def test_get_groups_class_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
@@ -265,7 +273,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
         # returns an empty list.
         connection.search_s.return_value = []
         with self.assertLogs("rfl.authentication.ldap", level="WARNING") as cm:
-            groups = self.authentifier._get_groups(connection, "john", 42)
+            groups = self.authentifier._get_groups(
+                connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
+            )
         self.assertEqual(groups, [])
         self.assertEqual(
             cm.output,
