@@ -28,6 +28,8 @@ class LDAPAuthentifier:
         user_fullname_attribute: str,
         group_name_attribute: str,
         starttls: bool = False,
+        bind_dn: Union[str, None] = None,
+        bind_password: Union[str, None] = None,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -37,6 +39,8 @@ class LDAPAuthentifier:
         self.user_fullname_attribute = user_fullname_attribute
         self.group_name_attribute = group_name_attribute
         self.starttls = starttls
+        self.bind_dn = bind_dn
+        self.bind_password = bind_password
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
@@ -225,6 +229,20 @@ class LDAPAuthentifier:
         the list of their groups."""
         result = []
         connection = self.connection()
+
+        if self.bind_dn is not None:
+            logger.debug("Using DN %s to bind to LDAP directory", self.bind_dn)
+            try:
+                assert self.bind_password is not None
+            except AssertionError as err:
+                raise LDAPAuthenticationError(
+                    f"Password to authenticate with bind DN {self.bind_dn} is required"
+                ) from err
+            try:
+                connection.simple_bind_s(self.bind_dn, self.bind_password)
+            except ldap.INVALID_CREDENTIALS as err:
+                raise LDAPAuthenticationError("Invalid bind DN or password") from err
+
         try:
             for (user, user_dn) in self._list_user_dn(connection):
                 fullname, gidNumber = self._get_user_info(connection, user_dn)
