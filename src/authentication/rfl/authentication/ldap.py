@@ -27,6 +27,7 @@ class LDAPAuthentifier:
         group_base: str,
         user_fullname_attribute: str,
         group_name_attribute: str,
+        starttls: bool = False,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -35,6 +36,7 @@ class LDAPAuthentifier:
         self.group_base = group_base
         self.user_fullname_attribute = user_fullname_attribute
         self.group_name_attribute = group_name_attribute
+        self.starttls = starttls
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
@@ -65,6 +67,14 @@ class LDAPAuthentifier:
                 connection.set_option(ldap.OPT_X_TLS_CACERTFILE, str(self.cacert))
             # Force libldap to create a new SSL context
             connection.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
+        if self.starttls:
+            try:
+                logger.debug("Using STARTTLS to initialize TLS connection")
+                connection.start_tls_s()
+            except ldap.CONNECT_ERROR as err:
+                raise LDAPAuthenticationError(
+                    f"Unable to connect to LDAP server with STARTTLS: {str(err)}"
+                ) from err
         return connection
 
     def _get_user_info(
