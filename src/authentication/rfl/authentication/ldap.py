@@ -38,12 +38,30 @@ class LDAPAuthentifier:
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
-        # LDAP/SSL setup
-        if self.uri.geturl().startswith("ldaps"):
+        # SSL/TLS setup
+        if self.uri.geturl().startswith("ldaps") or self.starttls:
             connection.protocol_version = ldap.VERSION3
-            # Force cert validation
+            # Force server certificate validation
             connection.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
-            if self.cacert is not None:
+            # For LDAPS and STARTTLS, libldap require the path to CA certificates to be
+            # defined to authentication server certificate. If the cacert option is
+            # defined, use it else use default system CA certificates directory defined
+            # in OpenSSL library.
+            if self.cacert is None:
+                import ssl
+
+                logger.debug(
+                    "Using default system OpenSSL CA certificate directory to "
+                    "authenticate server"
+                )
+                connection.set_option(
+                    ldap.OPT_X_TLS_CACERTDIR,
+                    ssl.get_default_verify_paths().openssl_capath,
+                )
+            else:
+                logger.debug(
+                    "Using CA certification %s to authenticate server", self.cacert
+                )
                 connection.set_option(ldap.OPT_X_TLS_CACERTFILE, str(self.cacert))
             # Force libldap to create a new SSL context
             connection.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
