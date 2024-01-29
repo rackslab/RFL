@@ -122,13 +122,29 @@ class LDAPAuthentifier:
         return fullname, gidNumber
 
     def _get_groups(
-        self, connection: ldap.ldapobject.LDAPObject, user: str, gidNumber: int
+        self,
+        connection: ldap.ldapobject.LDAPObject,
+        user_name: str,
+        user_dn: str,
+        gidNumber: int,
     ) -> list[str]:
         """Return the list of groups whose provided user is member, including its
-        gidNumber. This function support RFC 2307 (aka. nis schema)."""
+        gidNumber. This function supports both RFC 2307 (aka. NIS schema) and RFC 2307
+        bis schema."""
+        # Standard RFC 2307 (aka. NIS) schema has group entries with posixGroup
+        # structural class. Group members are declared with memberUid attributes (with
+        # user cn as values).
+        #
+        # RFC 2307 bis schema has group entries with generally at least groupOfNames
+        # class and group members are declared with member attributes (with full user dn
+        # as values).
+        #
+        # In both cases, user primary group declared with gidNumber attribute in user
+        # entry must not be forgiven.
         search_filter = (
-            "(&(objectClass=posixGroup)"
-            f"(|(memberUid={user})(gidNumber={gidNumber})))"
+            "(&"
+            "(|(objectClass=posixGroup)(objectClass=groupOfNames))"
+            f"(|(memberUid={user_name})(member={user_dn})(gidNumber={gidNumber})))"
         )
         try:
             results = connection.search_s(
@@ -150,7 +166,7 @@ class LDAPAuthentifier:
         if not len(results):
             logger.warning(
                 "Unable to find groups in LDAP for user %s or gidNumber %s",
-                user,
+                user_name,
                 gidNumber,
             )
         try:
@@ -176,7 +192,7 @@ class LDAPAuthentifier:
             user_dn = f"uid={user},{self.user_base}"
             connection.simple_bind_s(user_dn, password)
             fullname, gidNumber = self._get_user_info(connection, user_dn)
-            groups = self._get_groups(connection, user, gidNumber)
+            groups = self._get_groups(connection, user, user_dn, gidNumber)
         except ldap.SERVER_DOWN as err:
             raise LDAPAuthenticationError(
                 f"LDAP server {self.uri.geturl()} is unreachable"
@@ -248,7 +264,7 @@ class LDAPAuthentifier:
                 fullname, gidNumber = self._get_user_info(connection, user_dn)
                 groups = []
                 if with_groups:
-                    groups = self._get_groups(connection, user, gidNumber)
+                    groups = self._get_groups(connection, user, user_dn, gidNumber)
                 result.append(
                     AuthenticatedUser(login=user, fullname=fullname, groups=groups)
                 )
