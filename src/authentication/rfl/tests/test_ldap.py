@@ -222,3 +222,115 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 " john or gidNumber 42"
             ],
         )
+
+    def test_list_user_dn(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        connection.search_s.return_value = [
+            ("uid=john,ou=people,dc=corp,dc=org", {"uid": [b"john"]}),
+            ("uid=marie,ou=people,dc=corp,dc=org", {"uid": [b"marie"]}),
+        ]
+        results = self.authentifier._list_user_dn(connection)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0], ("john", "uid=john,ou=people,dc=corp,dc=org"))
+        self.assertEqual(results[1], ("marie", "uid=marie,ou=people,dc=corp,dc=org"))
+
+    def test_list_user_dn_not_found(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        # When user DN is not found in LDAP, ldap module raises NO_SUCH_OBJECT
+        # exception.
+        connection.search_s.side_effect = ldap.NO_SUCH_OBJECT("fail")
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            "^Unable to find user base ou=people,dc=corp,dc=org$",
+        ):
+            self.authentifier._list_user_dn(connection)
+
+    def test_list_user_dn_no_result(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        connection.search_s.return_value = []
+        with self.assertLogs("rfl", level="WARNING") as lc:
+            results = self.authentifier._list_user_dn(connection)
+            self.assertEqual(
+                [
+                    "WARNING:rfl.authentication.ldap:Unable to find users in LDAP in "
+                    "base ou=people,dc=corp,dc=org subtree"
+                ],
+                lc.output,
+            )
+        self.assertEqual(len(results), 0)
+
+    def test_list_user_dn_no_uid(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        connection.search_s.return_value = [
+            ("uid=john,ou=people,dc=corp,dc=org", {}),
+        ]
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            "^Unable to extract user uid from user entries$",
+        ):
+            self.authentifier._list_user_dn(connection)
+
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch.object(LDAPAuthentifier, "_list_user_dn")
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch("rfl.authentication.ldap.ldap")
+    def test_users(
+        self, mock_ldap, mock_get_user_info, mock_list_user_dn, mock_get_groups
+    ):
+        # Setup mocks return values
+        mock_list_user_dn.return_value = [
+            ("john", "uid=john,ou=people,dc=corp,dc=org"),
+            ("marie", "uid=marie,ou=people,dc=corp,dc=org"),
+        ]
+        mock_get_user_info.side_effect = [("John Doe", 42), ("Marie Magic", 43)]
+        mock_ldap_object = mock_ldap.initialize.return_value
+
+        # Call method (without groups)
+        users = self.authentifier.users()
+
+        # Verify mock calls
+        mock_ldap_object.unbind_s.assert_called_once()
+        mock_list_user_dn.assert_called_once_with(mock_ldap_object)
+        mock_get_user_info.assert_called()
+
+        # Verify return value
+        self.assertEqual(len(users), 2)
+        self.assertEqual(users[0].login, "john")
+        self.assertEqual(users[0].fullname, "John Doe")
+        self.assertEqual(users[0].groups, [])
+        self.assertEqual(users[1].login, "marie")
+        self.assertEqual(users[1].fullname, "Marie Magic")
+        self.assertEqual(users[1].groups, [])
+
+        # Reset mock and re-inject side effects
+        mock_ldap_object.reset_mock()
+        mock_list_user_dn.reset_mock()
+        mock_get_user_info.reset_mock()
+        mock_get_user_info.side_effect = [("John Magic", 45), ("Marie Doe", 46)]
+        mock_get_groups.side_effect = [["admin", "users"], ["biology", "users"]]
+
+        # Call method (with groups)
+        users = self.authentifier.users(True)
+
+        # Verify mock calls
+        mock_ldap_object.unbind_s.assert_called_once()
+        mock_list_user_dn.assert_called_once_with(mock_ldap_object)
+        mock_get_user_info.assert_called()
+
+        # Verify return value
+        self.assertEqual(len(users), 2)
+        self.assertEqual(users[0].login, "john")
+        self.assertEqual(users[0].fullname, "John Magic")
+        self.assertEqual(users[0].groups, ["admin", "users"])
+        self.assertEqual(users[1].login, "marie")
+        self.assertEqual(users[1].fullname, "Marie Doe")
+        self.assertEqual(users[1].groups, ["biology", "users"])
+
+    @patch.object(ldap.ldapobject.LDAPObject, "search_s")
+    def test_users_ldap_errors(self, mock_search_s):
+        mock_search_s.side_effect = ldap.SERVER_DOWN("fail")
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            f"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+        ):
+            self.authentifier.users()
