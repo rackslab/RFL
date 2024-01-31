@@ -69,6 +69,30 @@ class TestLDAPAuthentifier(unittest.TestCase):
         )
         mock_ldap_object.reset_mock()
 
+    @patch("rfl.authentication.ldap.ldap")
+    def test_connection_starttls(self, mock_ldap):
+        mock_ldap_object = mock_ldap.initialize.return_value
+
+        # With ldaps URI (and starttls set to False by default), check LDAP server
+        # certificate is required and start_tls_s is NOT called.
+        self.authentifier.uri = urllib.parse.urlparse("ldaps://localhost")
+        self.authentifier.connection()
+        mock_ldap_object.set_option.assert_any_call(
+            mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
+        )
+        mock_ldap_object.start_tls_s.assert_not_called()
+        mock_ldap_object.reset_mock()
+
+        # With ldap URI and starttls set to True, check LDAP server certificate is
+        # required and start_tls_s is called.
+        self.authentifier.uri = urllib.parse.urlparse("ldap://localhost")
+        self.authentifier.starttls = True
+        self.authentifier.connection()
+        mock_ldap_object.set_option.assert_any_call(
+            mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
+        )
+        mock_ldap_object.start_tls_s.assert_called_once()
+
     @patch.object(LDAPAuthentifier, "_get_user_info")
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch("rfl.authentication.ldap.ldap")
