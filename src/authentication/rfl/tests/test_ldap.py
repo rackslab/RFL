@@ -122,6 +122,24 @@ class TestLDAPAuthentifier(unittest.TestCase):
         self.assertEqual(user.fullname, "John Doe")
         self.assertEqual(user.groups, ["group1", "group2"])
 
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch("rfl.authentication.ldap.ldap")
+    def test_login_not_in_restricted_group(
+        self, mock_ldap, mock_get_groups, mock_get_user_info
+    ):
+        # setup mocks return values
+        self.authentifier.restricted_groups = ["group3", "group4"]
+        mock_get_groups.return_value = ["group1", "group2"]
+        mock_get_user_info.return_value = ("John Doe", 42)
+
+        # call method
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            "^User john is not member of restricted groups$",
+        ):
+            self.authentifier.login("john", "SECR3T")
+
     def test_login_missing_user_or_password(self):
         with self.assertRaisesRegex(
             LDAPAuthenticationError, "Invalid authentication request"
@@ -285,6 +303,38 @@ class TestLDAPAuthentifier(unittest.TestCase):
             ],
         )
 
+    def test_in_restricted_groups(self):
+        # By default, restricted groups are unset, _in_restricted_groups must return
+        # True in all cases.
+        self.assertTrue(self.authentifier._in_restricted_groups([]))
+        self.assertTrue(self.authentifier._in_restricted_groups(["users", "admins"]))
+
+        # If restricted groups are set, _in_restricted_groups must return if at least
+        # one group in argument matches one restricted group.
+
+        # Test with one restricted group
+        self.authentifier.restricted_groups = ["admins"]
+        self.assertFalse(self.authentifier._in_restricted_groups([]))
+        self.assertFalse(
+            self.authentifier._in_restricted_groups(["users", "scientists"])
+        )
+        self.assertTrue(self.authentifier._in_restricted_groups(["admins"]))
+        self.assertTrue(
+            self.authentifier._in_restricted_groups(["users", "scientists", "admins"])
+        )
+
+        # Test with multiple restricted groups
+        self.authentifier.restricted_groups = ["admins", "scientists"]
+        self.assertFalse(self.authentifier._in_restricted_groups([]))
+        self.assertFalse(self.authentifier._in_restricted_groups(["users"]))
+        self.assertTrue(
+            self.authentifier._in_restricted_groups(["users", "scientists"])
+        )
+        self.assertTrue(self.authentifier._in_restricted_groups(["admins"]))
+        self.assertTrue(
+            self.authentifier._in_restricted_groups(["users", "scientists", "admins"])
+        )
+
     def test_list_user_dn(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
         connection.search_s.return_value = [
@@ -387,6 +437,43 @@ class TestLDAPAuthentifier(unittest.TestCase):
         self.assertEqual(users[1].login, "marie")
         self.assertEqual(users[1].fullname, "Marie Doe")
         self.assertEqual(users[1].groups, ["biology", "users"])
+
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch.object(LDAPAuthentifier, "_list_user_dn")
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch("rfl.authentication.ldap.ldap")
+    def test_users_restricted_groups(
+        self, mock_ldap, mock_get_user_info, mock_list_user_dn, mock_get_groups
+    ):
+        self.authentifier.restricted_groups = ["biology"]
+
+        # Setup mocks return values
+        mock_list_user_dn.return_value = [
+            ("john", "uid=john,ou=people,dc=corp,dc=org"),
+            ("marie", "uid=marie,ou=people,dc=corp,dc=org"),
+        ]
+        mock_get_user_info.side_effect = [("John Magic", 45), ("Marie Doe", 46)]
+        mock_get_groups.side_effect = [["admin", "users"], ["biology", "users"]]
+
+        # Call users method with groups retrieval
+        with self.assertLogs("rfl", level="DEBUG") as lc:
+            users = self.authentifier.users(True)
+
+        # Verify return value. Only user Marie in restricted biology group must be
+        # present.
+        self.assertEqual(len(users), 1)
+        self.assertEqual(users[0].login, "marie")
+        self.assertEqual(users[0].fullname, "Marie Doe")
+        self.assertEqual(users[0].groups, ["biology", "users"])
+
+        # Check debug message to indicate john is discarded has been sent
+        self.assertEqual(
+            [
+                "DEBUG:rfl.authentication.ldap:Discarding user john not member of "
+                "restricted groups"
+            ],
+            lc.output,
+        )
 
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch.object(LDAPAuthentifier, "_list_user_dn")
