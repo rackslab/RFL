@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch, Mock
 from pathlib import Path
 import urllib
+import ssl
 
 import ldap
 
@@ -32,14 +33,41 @@ class TestLDAPAuthentifier(unittest.TestCase):
         )
 
     def test_connection(self):
-        # With ldap uri
+        # With classic ldap uri (no SSL/TLS)
         self.authentifier.connection()
-        # With ldaps uri
+
+    @patch("rfl.authentication.ldap.ldap")
+    def test_connection_ssl_cert(self, mock_ldap):
+        mock_ldap_object = mock_ldap.initialize.return_value
+
+        # With ldap URI, check set_option is not called
+        self.authentifier.connection()
+        mock_ldap_object.set_option.assert_not_called()
+
+        # With ldaps URI and no CA certificate path, check LDAP server certificate is
+        # required and validated with default system OpenSSL certificates directory.
         self.authentifier.uri = urllib.parse.urlparse("ldaps://localhost")
         self.authentifier.connection()
-        # With ldaps uri and cacert
-        self.authentifier.cacert = Path("/dev/null")
+        mock_ldap_object.set_option.assert_any_call(
+            mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
+        )
+        mock_ldap_object.set_option.assert_any_call(
+            mock_ldap.OPT_X_TLS_CACERTDIR, ssl.get_default_verify_paths().openssl_capath
+        )
+        mock_ldap_object.reset_mock()
+
+        # With CA certificate path, check LDAP server certificate is required and
+        # validated with provided CA certificate.
+        cert = Path("/dev/null")
+        self.authentifier.cacert = cert
         self.authentifier.connection()
+        mock_ldap_object.set_option.assert_any_call(
+            mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
+        )
+        mock_ldap_object.set_option.assert_any_call(
+            mock_ldap.OPT_X_TLS_CACERTFILE, str(cert)
+        )
+        mock_ldap_object.reset_mock()
 
     @patch.object(LDAPAuthentifier, "_get_user_info")
     @patch.object(LDAPAuthentifier, "_get_groups")
