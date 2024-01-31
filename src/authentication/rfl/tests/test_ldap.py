@@ -378,6 +378,52 @@ class TestLDAPAuthentifier(unittest.TestCase):
         self.assertEqual(users[1].fullname, "Marie Doe")
         self.assertEqual(users[1].groups, ["biology", "users"])
 
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch.object(LDAPAuthentifier, "_list_user_dn")
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch("rfl.authentication.ldap.ldap")
+    def test_users_bind_dn(
+        self, mock_ldap, mock_get_user_info, mock_list_user_dn, mock_get_groups
+    ):
+        self.authentifier.bind_dn = "uid=hey,ou=people,dc=corp,dc=org"
+        self.authentifier.bind_password = "secr3t"
+
+        mock_ldap_object = mock_ldap.initialize.return_value
+
+        # Call method
+        self.authentifier.users()
+
+        # Check simple_bind_s is called when bind_dn and bind_password are defined
+        mock_ldap_object.simple_bind_s.assert_called_once()
+        mock_ldap_object.unbind_s.assert_called_once()
+
+    @patch("rfl.authentication.ldap.ldap")
+    def test_users_bind_dn_missing_password(self, mock_ldap):
+        self.authentifier.bind_dn = "uid=hey,ou=people,dc=corp,dc=org"
+
+        # Check exception is raised when bind_dn is set without bind_password
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            "^Password to authenticate with bind DN uid=hey,ou=people,dc=corp,dc=org "
+            "is required$",
+        ):
+            self.authentifier.users()
+
+    @patch.object(ldap, "initialize")
+    def test_users_bind_dn_invalid_credentials(self, mock_ldap_initialize):
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.simple_bind_s.side_effect = ldap.INVALID_CREDENTIALS("fail")
+
+        self.authentifier.bind_dn = "uid=hey,ou=people,dc=corp,dc=org"
+        self.authentifier.bind_password = "secr3t"
+
+        # Check exception is raised with LDAP fails due to invalid credential
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            "^Invalid bind DN or password$",
+        ):
+            self.authentifier.users()
+
     @patch.object(ldap.ldapobject.LDAPObject, "search_s")
     def test_users_ldap_errors(self, mock_search_s):
         mock_search_s.side_effect = ldap.SERVER_DOWN("fail")
