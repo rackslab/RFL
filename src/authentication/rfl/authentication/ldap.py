@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import Union
+from typing import Union, List
 from pathlib import Path
 import logging
 
@@ -30,6 +30,7 @@ class LDAPAuthentifier:
         starttls: bool = False,
         bind_dn: Union[str, None] = None,
         bind_password: Union[str, None] = None,
+        restricted_groups: Union[List[str], None] = None,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -41,6 +42,7 @@ class LDAPAuthentifier:
         self.starttls = starttls
         self.bind_dn = bind_dn
         self.bind_password = bind_password
+        self.restricted_groups = restricted_groups
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
@@ -179,9 +181,20 @@ class LDAPAuthentifier:
                 "attribute from group entries"
             ) from err
 
+    def _in_restricted_groups(self, groups: List[str]):
+        """Return False if restricted groups are set and none of the groups in argument
+        matches the restricted groups. If either restricted groups are unset or any of
+        the groups in argument is in restricted group, True is returned."""
+        return not (
+            self.restricted_groups is not None
+            and len(self.restricted_groups)
+            and not any([group in self.restricted_groups for group in groups])
+        )
+
     def login(self, user: str, password: str) -> AuthenticatedUser:
         """Verify provided user/password are valid and return the corresponding
-        AuthenticatedUser."""
+        AuthenticatedUser. Raise LDAPAuthenticationError if restricted groups are set
+        and the user in not member of any of these groups."""
         fullname = None
         groups = None
         connection = self.connection()
@@ -205,6 +218,10 @@ class LDAPAuthentifier:
             ) from err
         finally:
             connection.unbind_s()
+        if not self._in_restricted_groups(groups):
+            raise LDAPAuthenticationError(
+                f"User {user} is not member of restricted groups"
+            )
         return AuthenticatedUser(login=user, fullname=fullname, groups=groups)
 
     def _list_user_dn(self, connection):
@@ -240,9 +257,11 @@ class LDAPAuthentifier:
             ) from err
 
     def users(self, with_groups: bool = False) -> list[AuthenticatedUser]:
-        """Return list of AuthicatedUser available in LDAP directory. If with_groups is
-        True, the groups attribute of the AuthenticatedUsers is also initialized with
-        the list of their groups."""
+        """Return list of AuthenticatedUser available in LDAP directory. If with_groups
+        is True, the groups attribute of the AuthenticatedUsers is also initialized with
+        the list of their groups. If with_groups is True and restricted groups are set,
+        all users whose groups do not match any of the restricted groups are
+        discarded."""
         result = []
         connection = self.connection()
 
@@ -265,6 +284,12 @@ class LDAPAuthentifier:
                 groups = []
                 if with_groups:
                     groups = self._get_groups(connection, user, user_dn, gidNumber)
+                    # Skip the user if not member of any of the restricted groups
+                    if not self._in_restricted_groups(groups):
+                        logger.debug(
+                            "Discarding user %s not member of restricted groups", user
+                        )
+                        continue
                 result.append(
                     AuthenticatedUser(login=user, fullname=fullname, groups=groups)
                 )
