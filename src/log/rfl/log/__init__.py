@@ -7,9 +7,9 @@
 from typing import List
 import logging
 
-from .formatter import TTYFormatter
+from .formatters import TTYFormatter, DaemonFormatter
 
-__all__ = [TTYFormatter]
+__all__ = [TTYFormatter, DaemonFormatter]
 
 
 def setup_logger(

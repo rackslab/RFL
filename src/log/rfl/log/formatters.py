@@ -54,3 +54,12 @@ class TTYFormatter(logging.Formatter):
             prefix = "{level} ⸬ ".format(level=record.levelname)
 
         return style.start + prefix + _msg + style.end
+
+
+class DaemonFormatter(logging.Formatter):
+    def __init__(self, debug=True):
+        if debug:
+            _fmt = "%(threadName)s: [%(levelname)s] %(name)s %(message)s"
+        else:
+            _fmt = "%(threadName)s: [%(levelname)s] %(message)s"
+        super().__init__(_fmt)
