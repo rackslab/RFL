@@ -17,6 +17,7 @@ def setup_logger(
     flags: List[str] = [],
     formatter: logging.Formatter = auto_formatter(),
 ) -> None:
+    """Setup root logger debug level, debug flags and formatter."""
     if debug:
         logging_level = logging.DEBUG
     else:
@@ -38,3 +39,27 @@ def setup_logger(
 
     handler.addFilter(custom_filter)
     root_logger.addHandler(handler)
+
+
+def enforce_debug(
+    flags: List[str],
+) -> None:
+    """Enforce root logger debug level and debug flags."""
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level=logging.DEBUG)
+
+    # filter out all libs logs not enabled in flags
+    def custom_filter(record):
+        if "ALL" in flags:
+            return 1
+        if record.name.split(".")[0] not in flags:
+            return 0
+        return 1
+
+    # For all handlers, set log level, enable debug in formatter and replace filter.
+    for handler in root_logger.handlers:
+        handler.setLevel(logging.DEBUG)
+        handler.formatter.debug = True
+        for filter in handler.filters:
+            handler.removeFilter(filter)
+            handler.addFilter(custom_filter)
