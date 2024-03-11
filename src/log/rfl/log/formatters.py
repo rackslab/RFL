@@ -4,7 +4,17 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import sys
 import logging
+
+
+def auto_formatter():
+    """Automatically select the most appropriate formatter class by checking if stdout
+    is connected to a TTY."""
+    if sys.stdout.isatty():
+        return TTYFormatter
+    else:
+        return DaemonFormatter
 
 
 class ANSIStyle:

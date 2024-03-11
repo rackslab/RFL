@@ -7,15 +7,15 @@
 from typing import List
 import logging
 
-from .formatters import TTYFormatter, DaemonFormatter
+from .formatters import TTYFormatter, DaemonFormatter, auto_formatter
 
-__all__ = [TTYFormatter, DaemonFormatter]
+__all__ = [TTYFormatter, DaemonFormatter, auto_formatter]
 
 
 def setup_logger(
-    formatter: logging.Formatter,
     debug: bool = False,
     flags: List[str] = [],
+    formatter: logging.Formatter = auto_formatter(),
 ) -> None:
     if debug:
         logging_level = logging.DEBUG
