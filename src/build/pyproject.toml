@@ -30,7 +30,7 @@ readme = "README.md"
 "Bug Tracker" = "https://github.com/rackslab/RFL/issues"
 
 [project.scripts]
-install-setup-generator = "rfl.build.installsetup:main"
+rfl-install-setup-generator = "rfl.build.installsetup:main"
 
 [tool.setuptools.packages.find]
 include = ["rfl.build*"]
