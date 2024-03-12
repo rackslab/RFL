@@ -35,9 +35,18 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             JWTPrivateKeyFileLoader()
 
     def test_load_path(self):
-        loader = JWTPrivateKeyFileLoader(path=Path("/dev/null"))
-        self.assertEqual(loader.key, "")
-        self.assertEqual(str(loader.path), "/dev/null")
+        with tempfile.NamedTemporaryFile() as fh:
+            fh.write(b"SECR3T")
+            fh.flush()
+            loader = JWTPrivateKeyFileLoader(path=Path(fh.name))
+        self.assertEqual(loader.key, "SECR3T")
+
+    def test_load_empty_key(self):
+        with self.assertRaisesRegex(
+            JWTPrivateKeyLoaderError,
+            "Key loaded from file /dev/null is empty",
+        ):
+            JWTPrivateKeyFileLoader(path=Path("/dev/null"))
 
     def test_load_unexisting_path(self):
         with self.assertRaisesRegex(
