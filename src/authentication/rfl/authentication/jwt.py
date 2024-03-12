@@ -77,8 +77,13 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
                     f"Token private key file {self.path} not found"
                 )
         # Load the instance tokens encryption key
-        with open(self.path, "r") as fh:
-            self.key = fh.read()
+        try:
+            with open(self.path, "r") as fh:
+                self.key = fh.read()
+        except PermissionError as err:
+            raise JWTPrivateKeyLoaderError(
+                f"Permission error to access private key file {self.path}"
+            ) from err
 
 
 class JWTManager:
