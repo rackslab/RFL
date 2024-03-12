@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import List
+from typing import Optional, List
 import logging
 
 from .formatters import TTYFormatter, DaemonFormatter, auto_formatter
@@ -14,7 +14,8 @@ __all__ = [TTYFormatter, DaemonFormatter, auto_formatter]
 
 def setup_logger(
     debug: bool = False,
-    flags: List[str] = [],
+    log_flags: Optional[List[str]] = None,
+    debug_flags: Optional[List[str]] = None,
     formatter: logging.Formatter = auto_formatter(),
 ) -> None:
     """Setup root logger debug level, debug flags and formatter."""
@@ -22,6 +23,11 @@ def setup_logger(
         logging_level = logging.DEBUG
     else:
         logging_level = logging.INFO
+
+    if log_flags is None:
+        log_flags = []
+    if debug_flags is None:
+        debug_flags = []
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging_level)
@@ -31,30 +37,42 @@ def setup_logger(
     handler.setFormatter(formatter)
     # filter out all libs logs not enabled in flags
     def custom_filter(record):
-        if "ALL" in flags:
-            return 1
-        if record.name.split(".")[0] not in flags:
+        component = record.name.split(".")[0]
+        if record.levelno == logging.DEBUG:
+            if "ALL" in debug_flags or component in debug_flags:
+                return 1
             return 0
-        return 1
+        if "ALL" in log_flags or component in log_flags:
+            return 1
+        return 0
 
     handler.addFilter(custom_filter)
     root_logger.addHandler(handler)
 
 
 def enforce_debug(
-    flags: List[str],
+    log_flags: Optional[List[str]] = None,
+    debug_flags: Optional[List[str]] = None,
 ) -> None:
     """Enforce root logger debug level and debug flags."""
     root_logger = logging.getLogger()
     root_logger.setLevel(level=logging.DEBUG)
 
+    if log_flags is None:
+        log_flags = []
+    if debug_flags is None:
+        debug_flags = []
+
     # filter out all libs logs not enabled in flags
     def custom_filter(record):
-        if "ALL" in flags:
-            return 1
-        if record.name.split(".")[0] not in flags:
+        component = record.name.split(".")[0]
+        if record.levelno == logging.DEBUG:
+            if "ALL" in debug_flags or component in debug_flags:
+                return 1
             return 0
-        return 1
+        if "ALL" in log_flags or component in log_flags:
+            return 1
+        return 0
 
     # For all handlers, set log level, enable debug in formatter and replace filter.
     for handler in root_logger.handlers:
