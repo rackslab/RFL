@@ -4,13 +4,94 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from pathlib import Path
+import stat
+import tempfile
+import os
 import unittest
 
 from rfl.authentication.user import AuthenticatedUser
 from rfl.authentication.jwt import JWTPrivateKeyFileLoader, JWTManager
-from rfl.authentication.errors import JWTEncodeError, JWTDecodeError
+from rfl.authentication.errors import (
+    JWTPrivateKeyLoaderError,
+    JWTEncodeError,
+    JWTDecodeError,
+)
 
 PRIVATE_KEY = b"TEST_PRIVATE_KEY"
+
+
+class TestJWTPrivateKeyFileLoader(unittest.TestCase):
+    def test_load_value(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        self.assertEqual(loader.key, PRIVATE_KEY)
+        self.assertEqual(loader.path, None)
+
+    def test_load_noarg(self):
+        with self.assertRaisesRegex(
+            JWTPrivateKeyLoaderError,
+            "Either key value or a path must be given to load JWT private key",
+        ):
+            JWTPrivateKeyFileLoader()
+
+    def test_load_path(self):
+        loader = JWTPrivateKeyFileLoader(path=Path("/dev/null"))
+        self.assertEqual(loader.key, "")
+        self.assertEqual(str(loader.path), "/dev/null")
+
+    def test_load_unexisting_path(self):
+        with self.assertRaisesRegex(
+            JWTPrivateKeyLoaderError, "Token private key file /dev/not-found not found"
+        ):
+            JWTPrivateKeyFileLoader(path=Path("/dev/not-found"))
+
+    def test_load_path_permission_denied(self):
+        with tempfile.NamedTemporaryFile() as fh:
+            os.chmod(fh.name, 0o000)
+            with self.assertRaisesRegex(
+                JWTPrivateKeyLoaderError,
+                f"Permission error to access private key file {fh.name}",
+            ):
+                JWTPrivateKeyFileLoader(path=Path(fh.name))
+
+    def test_load_create(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            key_path = Path(dir_name, "private.key")
+            loader = JWTPrivateKeyFileLoader(path=key_path, create=True)
+            self.assertEqual(stat.filemode(key_path.stat().st_mode), "-r--------")
+        self.assertEqual(len(loader.key), 64)
+        self.assertEqual(str(loader.path), str(key_path))
+
+    def test_load_create_parent(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            key_path = Path(dir_name, "private.key")
+            os.rmdir(dir_name)
+            loader = JWTPrivateKeyFileLoader(
+                path=key_path, create=True, create_parent=True
+            )
+            self.assertEqual(stat.filemode(key_path.stat().st_mode), "-r--------")
+        self.assertEqual(len(loader.key), 64)
+        self.assertEqual(str(loader.path), str(key_path))
+
+    def test_load_missing_parent(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            key_path = Path(dir_name, "private.key")
+            os.rmdir(dir_name)
+            with self.assertRaisesRegex(
+                JWTPrivateKeyLoaderError,
+                f"Token private key parent directory {dir_name} not found",
+            ):
+                JWTPrivateKeyFileLoader(path=key_path, create=True)
+
+    def test_load_create_parent_permission_denied(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            key_path = Path(dir_name, "subdir", "private.key")
+            key_path.parent.parent.chmod(0o500)
+            with self.assertRaisesRegex(
+                JWTPrivateKeyLoaderError,
+                f"Permission denied to create key parent directory {key_path.parent}",
+            ):
+                JWTPrivateKeyFileLoader(path=key_path, create=True, create_parent=True)
 
 
 class TestJWTManager(unittest.TestCase):
