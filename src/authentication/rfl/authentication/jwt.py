@@ -21,7 +21,7 @@ class JWTPrivateKeyLoader:
     pass
 
 
-class JWTPrivateKeyFileLoader:
+class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
     def __init__(
         self,
         path: Path = None,
