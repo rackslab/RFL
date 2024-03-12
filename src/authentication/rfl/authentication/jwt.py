@@ -84,6 +84,8 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
             raise JWTPrivateKeyLoaderError(
                 f"Permission error to access private key file {self.path}"
             ) from err
+        if not len(self.key):
+            raise JWTPrivateKeyLoaderError(f"Key loaded from file {self.path} is empty")
 
 
 class JWTManager:
