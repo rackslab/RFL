@@ -98,14 +98,21 @@ def rbac_action(action):
 
 
 class RFLTokenizedWebApp:
-    def __init__(self, audience: str, algorithm: str, key: Path):
+    def __init__(
+        self,
+        audience: str,
+        algorithm: str,
+        key: Path,
+        create: bool = False,
+        create_parent: bool = False,
+    ):
         try:
             self.jwt = JWTManager.key(
                 audience=audience,
                 algorithm=algorithm,
                 path=key,
-                create=True,
-                create_parent=True,
+                create=create,
+                create_parent=create_parent,
             )
         except JWTPrivateKeyLoaderError as err:
             logger.critical(f"Error while loading JWT private key {key}: {str(err)}")
@@ -114,9 +121,16 @@ class RFLTokenizedWebApp:
 
 class RFLTokenizedRBACWebApp(RFLTokenizedWebApp):
     def __init__(
-        self, audience: str, algorithm: str, key: Path, policy: Path, roles: Path
+        self,
+        audience: str,
+        algorithm: str,
+        key: Path,
+        policy: Path,
+        roles: Path,
+        create: bool = False,
+        create_parent: bool = False,
     ):
-        super().__init__(audience, algorithm, key)
+        super().__init__(audience, algorithm, key, create, create_parent)
         try:
             self.policy = RBACPolicyManager.yaml_definition_ini_roles(
                 definition=policy, roles=roles
