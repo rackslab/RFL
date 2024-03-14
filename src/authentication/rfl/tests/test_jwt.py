@@ -11,14 +11,44 @@ import os
 import unittest
 
 from rfl.authentication.user import AuthenticatedUser
-from rfl.authentication.jwt import JWTPrivateKeyFileLoader, JWTManager
+from rfl.authentication.jwt import jwt_gen_key, JWTPrivateKeyFileLoader, JWTManager
 from rfl.authentication.errors import (
+    JWTPrivateKeyGeneratorError,
     JWTPrivateKeyLoaderError,
     JWTEncodeError,
     JWTDecodeError,
 )
 
 PRIVATE_KEY = b"TEST_PRIVATE_KEY"
+
+
+class TestJWTGenKey(unittest.TestCase):
+    def test_gen_key(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            key_path = Path(dir_name, "private.key")
+            jwt_gen_key(key_path)
+            self.assertEqual(stat.filemode(key_path.stat().st_mode), "-r--------")
+            self.assertEqual(key_path.stat().st_size, 64)
+
+    def test_gen_key_permission_error(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            key_path = Path(dir_name, "private.key")
+            os.chmod(dir_name, 0o000)
+            with self.assertRaisesRegex(
+                JWTPrivateKeyGeneratorError,
+                "^Error while generating JWT key .+/private.key: \[Errno 13\] "
+                "Permission denied: '.+/private.key'$",
+            ):
+                jwt_gen_key(key_path)
+
+    def test_gen_key_no_parent(self):
+        key_path = Path("/dev/null/fail.key")
+        with self.assertRaisesRegex(
+            JWTPrivateKeyGeneratorError,
+            "^Error while generating JWT key /dev/null/fail.key: \[Errno 20\] Not "
+            "a directory: '/dev/null/fail.key'$",
+        ):
+            jwt_gen_key(key_path)
 
 
 class TestJWTPrivateKeyFileLoader(unittest.TestCase):
