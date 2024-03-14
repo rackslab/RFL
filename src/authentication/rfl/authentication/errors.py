@@ -19,6 +19,10 @@ class JWTError(AuthenticationError):
     pass
 
 
+class JWTPrivateKeyGeneratorError(JWTError):
+    pass
+
+
 class JWTPrivateKeyLoaderError(JWTError):
     pass
 

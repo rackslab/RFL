@@ -12,9 +12,28 @@ from pathlib import Path
 import jwt
 
 from .user import AuthenticatedUser
-from .errors import JWTPrivateKeyLoaderError, JWTDecodeError, JWTEncodeError
+from .errors import (
+    JWTPrivateKeyGeneratorError,
+    JWTPrivateKeyLoaderError,
+    JWTDecodeError,
+    JWTEncodeError,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def jwt_gen_key(path: Path):
+    """Generate JWT private key with random data. Raise JWTPrivateKeyGeneratorError in
+    case of error."""
+    logger.info("Generating JWT private key file %s", path)
+    try:
+        with open(path, "w+") as fh:
+            fh.write(secrets.token_hex(32))
+    except (NotADirectoryError, PermissionError) as err:
+        raise JWTPrivateKeyGeneratorError(
+            f"Error while generating JWT key {path}: {err}"
+        ) from err
+    path.chmod(0o400)  # restrict access to encryption key
 
 
 class JWTPrivateKeyLoader:
@@ -68,10 +87,7 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
         # Generate instance tokens encryption key file if missing
         if not self.path.exists():
             if create:
-                logger.info("Generating JWT private key file %s", self.path)
-                with open(self.path, "w+") as fh:
-                    fh.write(secrets.token_hex(32))
-                self.path.chmod(0o400)  # restrict access to encryption key
+                jwt_gen_key(self.path)
             else:
                 raise JWTPrivateKeyLoaderError(
                     f"Token private key file {self.path} not found"
