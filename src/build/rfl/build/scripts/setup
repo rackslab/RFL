@@ -16,6 +16,8 @@ import os
 
 import tomli
 
+header = "rfl-build"
+
 with open("pyproject.toml", "rb") as fh:
     pyproject = tomli.load(fh)
 
@@ -49,12 +51,22 @@ for include in pyproject["tool"]["setuptools"]["packages"]["find"]["include"]:
     topfolder = include.split(".", 1)[0]
     if "__init__.py" not in os.listdir(topfolder):
         autofind = False
-    packages.append(include.replace("*",""))
+    packages.append(include.replace("*", ""))
 
 if autofind:
     kwargs["packages"] = find_packages()
 else:
     kwargs["packages"] = packages
+
+print(f"{header}: packages: {kwargs['packages']}")
+
+if "package-data" in pyproject["tool"]["setuptools"]:
+    kwargs["package_data"] = {
+        package: data
+        for package, data in pyproject["tool"]["setuptools"]["package-data"].items()
+    }
+    kwargs["include_package_data"] = True
+    print(f"{header}: package data {kwargs['package_data']}")
 
 setup(
     name=pyproject["project"]["name"],
