@@ -37,4 +37,4 @@ rfl-project-version = "rfl.build.projectversion:main"
 include = ["rfl.build*"]
 
 [tool.setuptools.package-data]
-"rfl.build.scripts" = ["*.py"]
+"rfl.build.scripts" = ["*"]
