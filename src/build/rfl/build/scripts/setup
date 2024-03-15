@@ -68,6 +68,13 @@ if "package-data" in pyproject["tool"]["setuptools"]:
     kwargs["include_package_data"] = True
     print(f"{header}: package data {kwargs['package_data']}")
 
+if "optional-dependencies" in pyproject["project"]:
+    kwargs["extras_require"] = {
+        extra: deps
+        for extra, deps in pyproject["project"]["optional-dependencies"].items()
+    }
+    print(f"{header}: extras require {kwargs['extras_require']}")
+
 setup(
     name=pyproject["project"]["name"],
     version=pyproject["project"]["version"],
