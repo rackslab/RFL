@@ -8,18 +8,22 @@
 This setup.py loads parameter defined in pyproject.toml and calls setuptools.setup()
 with these parameters. This script is especially useful to build modern PEP 518 Python
 projects that provide pyproject.toml with old versions of pip/python (eg. python 3.6)
-without support PEP 518.
+without PEP 518 support.
 """
 
-from setuptools import setup, find_packages
 import os
 
-import tomli
+from setuptools import setup, find_packages
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 
 header = "rfl-build"
 
 with open("pyproject.toml", "rb") as fh:
-    pyproject = tomli.load(fh)
+    pyproject = tomllib.load(fh)
 
 kwargs = {}
 if "scripts" in pyproject["project"]:
