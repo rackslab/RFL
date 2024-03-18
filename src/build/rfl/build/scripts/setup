@@ -11,6 +11,7 @@ projects that provide pyproject.toml with old versions of pip/python (eg. python
 without PEP 518 support.
 """
 
+import sys
 import os
 
 from setuptools import setup, find_packages
@@ -25,7 +26,14 @@ header = "rfl-build"
 with open("pyproject.toml", "rb") as fh:
     pyproject = tomllib.load(fh)
 
+# Nothing much can be done by the script.
+if "project" not in pyproject:
+    print(f"{header}: project section not found, leaving.")
+    sys.exit(0)
+
+# Initialize dict of additional options
 kwargs = {}
+
 if "scripts" in pyproject["project"]:
     kwargs["entry_points"] = {
         "console_scripts": [
