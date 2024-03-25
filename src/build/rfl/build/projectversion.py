@@ -20,8 +20,10 @@ try:
 except ImportError:
     import tomli as tomllib
 
+from .errors import BuildError
 
-def main():
+
+def project_version():
     current_dir = Path.cwd()
     found = False
     while True:
@@ -37,20 +39,23 @@ def main():
             current_dir = current_dir.parent
 
     if not found:
-        print(
+        raise BuildError(
             "Unable to find project pyproject.toml file of current working directory",
-            file=sys.stderr,
         )
-        sys.exit(1)
     content = tomllib.load(open(pyproject_path, "rb"))
     try:
-        print(content["project"]["version"])
-    except KeyError:
-        print(
-            "Unable to extract version from project file",
-            pyproject_path,
-            file=sys.stderr,
-        )
+        return content["project"]["version"]
+    except KeyError as err:
+        raise BuildError(
+            f"Unable to extract version from project file {pyproject_path}"
+        ) from err
+
+
+def main():
+    try:
+        print(project_version())
+    except BuildError as err:
+        print(str(err), file=sys.stderr)
         sys.exit(1)
 
 
