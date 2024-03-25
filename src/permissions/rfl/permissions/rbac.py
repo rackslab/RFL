@@ -7,6 +7,7 @@
 import configparser
 import logging
 from pathlib import Path
+from typing import Set, Tuple
 
 try:
     from functools import cached_property
@@ -33,7 +34,7 @@ ALL_MEMBER = "ALL"
 
 
 class RBACPolicyRole:
-    def __init__(self, name: str, members: set[str], actions: set[str]):
+    def __init__(self, name: str, members: Set[str], actions: Set[str]):
         self.name = name
         self.members = members
         self.actions = actions
@@ -188,7 +189,7 @@ class RBACPolicyManager:
                 return True
         return False
 
-    def _user_roles(self, user: AuthenticatedUser) -> set[str]:
+    def _user_roles(self, user: AuthenticatedUser) -> Set[str]:
         """Return the set of roles associated to a given user name."""
         roles = set()
         for role in self.loader.roles:
@@ -204,7 +205,7 @@ class RBACPolicyManager:
         logger.debug("Found the following roles for user %s: %s", user, roles)
         return roles
 
-    def roles_actions(self, user: AuthenticatedUser) -> tuple[set[str], set[str]]:
+    def roles_actions(self, user: AuthenticatedUser) -> Tuple[Set[str], Set[str]]:
         """Return tuple with set of role names and set of allowed actions for a
         particular user and list of groups membership."""
         roles = self._user_roles(user)
