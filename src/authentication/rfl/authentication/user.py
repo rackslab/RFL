@@ -4,12 +4,12 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import Union
+from typing import Union, List
 
 
 class AuthenticatedUser:
     def __init__(
-        self, login: str, fullname: Union[str, None] = None, groups: list[str] = []
+        self, login: str, fullname: Union[str, None] = None, groups: List[str] = []
     ):
         self.login = login
         self.fullname = fullname

@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import Union, List
+from typing import Union, List, Tuple
 from pathlib import Path
 import logging
 
@@ -85,7 +85,7 @@ class LDAPAuthentifier:
 
     def _get_user_info(
         self, connection: ldap.ldapobject.LDAPObject, user_dn: str
-    ) -> tuple[str, int]:
+    ) -> Tuple[str, int]:
         """Return fullname and gidNumber from the provided user DN."""
         search_filter = f"(objectClass={self.user_class})"
         try:
@@ -129,7 +129,7 @@ class LDAPAuthentifier:
         user_name: str,
         user_dn: str,
         gidNumber: int,
-    ) -> list[str]:
+    ) -> List[str]:
         """Return the list of groups whose provided user is member, including its
         gidNumber. This function supports both RFC 2307 (aka. NIS schema) and RFC 2307
         bis schema."""
@@ -256,7 +256,7 @@ class LDAPAuthentifier:
                 "Unable to extract user uid from user entries"
             ) from err
 
-    def users(self, with_groups: bool = False) -> list[AuthenticatedUser]:
+    def users(self, with_groups: bool = False) -> List[AuthenticatedUser]:
         """Return list of AuthenticatedUser available in LDAP directory. If with_groups
         is True, the groups attribute of the AuthenticatedUsers is also initialized with
         the list of their groups. If with_groups is True and restricted groups are set,
