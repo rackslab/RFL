@@ -41,12 +41,21 @@ class TestJWTGenKey(unittest.TestCase):
             ):
                 jwt_gen_key(key_path)
 
-    def test_gen_key_no_parent(self):
+    def test_gen_key_parent_file(self):
         key_path = Path("/dev/null/fail.key")
         with self.assertRaisesRegex(
             JWTPrivateKeyGeneratorError,
             "^Error while generating JWT key /dev/null/fail.key: \[Errno 20\] Not "
             "a directory: '/dev/null/fail.key'$",
+        ):
+            jwt_gen_key(key_path)
+
+    def test_gen_key_parent_not_found(self):
+        key_path = Path("/dev/fail/fail.key")
+        with self.assertRaisesRegex(
+            JWTPrivateKeyGeneratorError,
+            "^Error while generating JWT key /dev/fail/fail.key: \[Errno 2\] No such "
+            "file or directory: '/dev/fail/fail.key'$",
         ):
             jwt_gen_key(key_path)
 
