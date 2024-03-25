@@ -29,7 +29,7 @@ def jwt_gen_key(path: Path):
     try:
         with open(path, "w+") as fh:
             fh.write(secrets.token_hex(32))
-    except (NotADirectoryError, PermissionError) as err:
+    except (FileNotFoundError, NotADirectoryError, PermissionError) as err:
         raise JWTPrivateKeyGeneratorError(
             f"Error while generating JWT key {path}: {err}"
         ) from err
