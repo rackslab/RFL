@@ -134,7 +134,7 @@ class JWTManager:
         """Returns a JWT token for the given user, signed with the encryption
         key, for the configured audience and valid for the given duration."""
         try:
-            return jwt.encode(
+            token = jwt.encode(
                 {
                     "iat": datetime.now(tz=timezone.utc),
                     "exp": datetime.now(tz=timezone.utc) + timedelta(days=duration),
@@ -147,6 +147,10 @@ class JWTManager:
             )
         except NotImplementedError as err:
             raise JWTEncodeError(f"JWT token encode error: {str(err)}") from err
+        # For compatibility with PyJWT < 2
+        if isinstance(token, bytes):
+            return token.decode()
+        return token
 
     @classmethod
     def key(
