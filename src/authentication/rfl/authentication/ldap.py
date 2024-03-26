@@ -72,7 +72,10 @@ class LDAPAuthentifier:
                 )
                 connection.set_option(ldap.OPT_X_TLS_CACERTFILE, str(self.cacert))
             # Force libldap to create a new SSL context
-            connection.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
+            try:
+                connection.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
+            except ValueError as err:
+                raise LDAPAuthenticationError("LDAP connection option value error") from err
         if self.starttls:
             try:
                 logger.debug("Using STARTTLS to initialize TLS connection")
