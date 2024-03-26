@@ -93,6 +93,23 @@ class TestLDAPAuthentifier(unittest.TestCase):
         )
         mock_ldap_object.start_tls_s.assert_called_once()
 
+    @patch.object(ldap.ldapobject.LDAPObject, "start_tls_s")
+    def test_connection_tls_errors(self, mock_start_tls_s):
+        self.authentifier.uri = urllib.parse.urlparse("ldap://localhost")
+        self.authentifier.starttls = True
+        mock_start_tls_s.side_effect = ldap.CONNECT_ERROR("fail")
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            "^Unable to connect to LDAP server with STARTTLS: fail$",
+        ):
+            self.authentifier.connection()
+        mock_start_tls_s.side_effect = ldap.SERVER_DOWN("fail")
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            f"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+        ):
+            self.authentifier.connection()
+
     @patch.object(LDAPAuthentifier, "_get_user_info")
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch("rfl.authentication.ldap.ldap")
