@@ -81,6 +81,10 @@ class LDAPAuthentifier:
                 raise LDAPAuthenticationError(
                     f"Unable to connect to LDAP server with STARTTLS: {str(err)}"
                 ) from err
+            except ldap.SERVER_DOWN as err:
+                raise LDAPAuthenticationError(
+                    f"LDAP server {self.uri.geturl()} is unreachable"
+                ) from err
         return connection
 
     def _get_user_info(
