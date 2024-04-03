@@ -10,6 +10,7 @@
 
 """Python module to help generating .ninja files."""
 
+import sys
 import io
 import re
 import textwrap
@@ -217,5 +218,18 @@ class NinjaBuilder(object):
 
     def run(self):
         self.output.seek(0)
-        subprocess.run(["ninja", "-f", "/dev/stdin"], input=self.output.read().encode())
-        self.output.close()
+        try:
+            subprocess.run(
+                ["ninja", "-f", "/dev/stdin"], input=self.output.read().encode()
+            )
+        except subprocess.CalledProcessError as err:
+            print(
+                "Error while running ninja:\n"
+                f"  exit code: {err.returncode}\n"
+                f"  stdout: {err.stdout}\n"
+                f"  stderr: {err.stderr}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        finally:
+            self.output.close()
