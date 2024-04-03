@@ -75,7 +75,9 @@ class LDAPAuthentifier:
             try:
                 connection.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
             except ValueError as err:
-                raise LDAPAuthenticationError("LDAP connection option value error") from err
+                raise LDAPAuthenticationError(
+                    "LDAP connection option value error"
+                ) from err
         if self.starttls:
             try:
                 logger.debug("Using STARTTLS to initialize TLS connection")
