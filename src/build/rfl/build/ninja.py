@@ -14,7 +14,7 @@ import sys
 import io
 import re
 import textwrap
-from pathlib import Path, PurePath
+from pathlib import PurePath
 import subprocess
 
 
