@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RFL.permissions"
-version = "0.0.1"
+version = "1.0.0"
 description = "Rackslab Foundation Library: permissions package"
 license = {text = "GPLv3+"}
 requires-python = ">=3.6"

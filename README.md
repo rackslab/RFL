@@ -25,7 +25,7 @@ generated dynamically by a script with centrally managed information in
 
 ## Status
 
-RFL is currently under heavy development.
+RFL is considered stable and ready for production.
 
 ## Install
 
