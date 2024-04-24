@@ -1,3 +1,12 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RFL"
+version = "1.0.0"
+description = "Rackslab Foundation Library"
+
 [tool.black]
 target-version = ['py36']
 color = 1
