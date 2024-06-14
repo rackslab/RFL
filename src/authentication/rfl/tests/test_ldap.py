@@ -24,12 +24,8 @@ class TestLDAPAuthentifier(unittest.TestCase):
     def setUp(self):
         self.authentifier = LDAPAuthentifier(
             uri=urllib.parse.urlparse("ldap://localhost"),
-            cacert=None,
             user_base="ou=people,dc=corp,dc=org",
-            user_class="posixAccount",
             group_base="ou=groups,dc=corp,dc=org",
-            user_fullname_attribute="cn",
-            group_name_attribute="cn",
         )
 
     def test_connection(self):
