@@ -24,6 +24,7 @@ class LDAPAuthentifier:
         user_base: str,
         group_base: str,
         user_class: str = "posixAccount",
+        user_name_attribute: str = "uid",
         user_fullname_attribute: str = "cn",
         group_name_attribute: str = "cn",
         cacert: Optional[Path] = None,
@@ -37,6 +38,7 @@ class LDAPAuthentifier:
         self.user_base = user_base
         self.user_class = user_class
         self.group_base = group_base
+        self.user_name_attribute = user_name_attribute
         self.user_fullname_attribute = user_fullname_attribute
         self.group_name_attribute = group_name_attribute
         self.starttls = starttls
@@ -211,7 +213,7 @@ class LDAPAuthentifier:
             raise LDAPAuthenticationError("Invalid authentication request")
         try:
             # Try simple authentication with user/password on LDAP directory
-            user_dn = f"uid={user},{self.user_base}"
+            user_dn = f"{self.user_name_attribute}={user},{self.user_base}"
             connection.simple_bind_s(user_dn, password)
             fullname, gidNumber = self._get_user_info(connection, user_dn)
             groups = self._get_groups(connection, user, user_dn, gidNumber)
@@ -241,7 +243,7 @@ class LDAPAuthentifier:
                 self.user_base,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
-                ["uid"],
+                [self.user_name_attribute],
             )
         except ldap.NO_SUCH_OBJECT as err:
             raise LDAPAuthenticationError(
@@ -259,10 +261,13 @@ class LDAPAuthentifier:
                 self.user_base,
             )
         try:
-            return [(result[1]["uid"][0].decode(), result[0]) for result in results]
+            return [
+                (result[1][self.user_name_attribute][0].decode(), result[0])
+                for result in results
+            ]
         except KeyError as err:
             raise LDAPAuthenticationError(
-                "Unable to extract user uid from user entries"
+                f"Unable to extract user {self.user_name_attribute} from user entries"
             ) from err
 
     def users(self, with_groups: bool = False) -> List[AuthenticatedUser]:

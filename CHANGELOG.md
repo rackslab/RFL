@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+- auth: Add `user_name_attribute` argumetn with default value _uid_ to
+  `LDAPAuthentifier` class initializer to specify an alternative user name
+  attribute (#2).
+
 ### Changed
 - auth: Add default values for `cacert`, `user_class`, `user_fullname_attribute`
   and `group_name_attribute` arguments of `LDAPAuthentifier` class initializer.
