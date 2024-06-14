@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import Union, List, Tuple
+from typing import Optional, List, Tuple
 from pathlib import Path
 import logging
 
@@ -26,11 +26,11 @@ class LDAPAuthentifier:
         user_class: str = "posixAccount",
         user_fullname_attribute: str = "cn",
         group_name_attribute: str = "cn",
-        cacert: Union[Path, None] = None,
+        cacert: Optional[Path] = None,
         starttls: bool = False,
-        bind_dn: Union[str, None] = None,
-        bind_password: Union[str, None] = None,
-        restricted_groups: Union[List[str], None] = None,
+        bind_dn: Optional[str] = None,
+        bind_password: Optional[str] = None,
+        restricted_groups: Optional[List[str]] = None,
     ):
         self.uri = uri
         self.cacert = cacert
