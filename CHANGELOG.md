@@ -12,6 +12,8 @@ and this project adheres to
 - auth: Add `user_name_attribute` argumetn with default value _uid_ to
   `LDAPAuthentifier` class initializer to specify an alternative user name
   attribute (#2).
+- build: Support explicit packages list without find in PEP 518 → setup.py
+  script generator.
 
 ### Changed
 - auth: Add default values for `cacert`, `user_class`, `user_fullname_attribute`
