@@ -84,6 +84,9 @@ if "package-data" in pyproject["tool"]["setuptools"]:
     kwargs["include_package_data"] = True
     print(f"{header}: package data {kwargs['package_data']}")
 
+if "dependencies" in pyproject["project"]:
+    kwargs["install_requires"] = pyproject["project"]["dependencies"]
+
 if "optional-dependencies" in pyproject["project"]:
     kwargs["extras_require"] = {
         extra: deps
@@ -99,6 +102,5 @@ setup(
     license=pyproject["project"]["license"]["text"],
     url=pyproject["project"]["urls"]["Homepage"],
     platforms=["GNU/Linux"],
-    install_requires=pyproject["project"]["dependencies"],
     **kwargs,
 )
