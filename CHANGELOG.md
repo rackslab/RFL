@@ -13,7 +13,7 @@ and this project adheres to
   `LDAPAuthentifier` class initializer to specify an alternative user name
   attribute (#2).
 - build: Support explicit packages list without find, lack of dependencies, lack
-  and file license in PEP 518 → setup.py script generator.
+  of urls, lack and file license in PEP 518 → setup.py script generator.
 
 ### Changed
 - auth: Add default values for `cacert`, `user_class`, `user_fullname_attribute`

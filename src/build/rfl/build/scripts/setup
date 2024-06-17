@@ -99,12 +99,14 @@ if "text" in pyproject["project"]["license"]:
 elif "file" in pyproject["project"]["license"]:
     kwargs["license_files"] = [pyproject["project"]["license"]["file"]]
 
+if "urls" in pyproject["project"]:
+    kwargs["url"] = pyproject["project"]["urls"]["Homepage"]
+
 setup(
     name=pyproject["project"]["name"],
     version=pyproject["project"]["version"],
     author=pyproject["project"]["authors"][0]["name"],
     author_email=pyproject["project"]["authors"][0]["email"],
-    url=pyproject["project"]["urls"]["Homepage"],
     platforms=["GNU/Linux"],
     **kwargs,
 )
