@@ -94,12 +94,16 @@ if "optional-dependencies" in pyproject["project"]:
     }
     print(f"{header}: extras require {kwargs['extras_require']}")
 
+if "text" in pyproject["project"]["license"]:
+    kwargs["license"] = pyproject["project"]["license"]["text"]
+elif "file" in pyproject["project"]["license"]:
+    kwargs["license_files"] = [pyproject["project"]["license"]["file"]]
+
 setup(
     name=pyproject["project"]["name"],
     version=pyproject["project"]["version"],
     author=pyproject["project"]["authors"][0]["name"],
     author_email=pyproject["project"]["authors"][0]["email"],
-    license=pyproject["project"]["license"]["text"],
     url=pyproject["project"]["urls"]["Homepage"],
     platforms=["GNU/Linux"],
     **kwargs,
