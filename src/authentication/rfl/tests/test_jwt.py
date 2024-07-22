@@ -102,7 +102,6 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             ):
                 JWTPrivateKeyFileLoader(path=Path(fh.name))
 
-
     def test_load_path_unicode_error(self):
         with tempfile.NamedTemporaryFile() as fh:
             fh.write(b"\x12\x34\x56\x78\x9a")
