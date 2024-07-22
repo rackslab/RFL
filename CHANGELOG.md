@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+- core: Introduce `utils` module with `shlex_join` function to backport
+  `shlex.join()` from Python >= 3.8.
+
 ### Fixed
 - auth: Handle `UnicodeDecodeError` when loading JWT private key (#3).
 
