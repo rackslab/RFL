@@ -100,6 +100,10 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
             raise JWTPrivateKeyLoaderError(
                 f"Permission error to access private key file {self.path}"
             ) from err
+        except UnicodeDecodeError as err:
+            raise JWTPrivateKeyLoaderError(
+                f"Unable to decode private key file {self.path}: {err}"
+            ) from err
         if not len(self.key):
             raise JWTPrivateKeyLoaderError(f"Key loaded from file {self.path} is empty")
 
