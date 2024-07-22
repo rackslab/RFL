@@ -102,6 +102,18 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             ):
                 JWTPrivateKeyFileLoader(path=Path(fh.name))
 
+
+    def test_load_path_unicode_error(self):
+        with tempfile.NamedTemporaryFile() as fh:
+            fh.write(b"\x12\x34\x56\x78\x9a")
+            fh.flush()
+            with self.assertRaisesRegex(
+                JWTPrivateKeyLoaderError,
+                f"Unable to decode private key file {fh.name}: '\S+' codec can't "
+                "decode byte 0x9a in position 4: invalid start byte$",
+            ):
+                JWTPrivateKeyFileLoader(path=Path(fh.name))
+
     def test_load_create(self):
         with tempfile.TemporaryDirectory() as dir_name:
             key_path = Path(dir_name, "private.key")
