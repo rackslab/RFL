@@ -36,8 +36,8 @@ class TestJWTGenKey(unittest.TestCase):
             os.chmod(dir_name, 0o000)
             with self.assertRaisesRegex(
                 JWTPrivateKeyGeneratorError,
-                "^Error while generating JWT key .+/private.key: \[Errno 13\] "
-                "Permission denied: '.+/private.key'$",
+                r"^Error while generating JWT key .+/private.key: \[Errno 13\] "
+                r"Permission denied: '.+/private.key'$",
             ):
                 jwt_gen_key(key_path)
 
@@ -45,8 +45,8 @@ class TestJWTGenKey(unittest.TestCase):
         key_path = Path("/dev/null/fail.key")
         with self.assertRaisesRegex(
             JWTPrivateKeyGeneratorError,
-            "^Error while generating JWT key /dev/null/fail.key: \[Errno 20\] Not "
-            "a directory: '/dev/null/fail.key'$",
+            r"^Error while generating JWT key /dev/null/fail.key: \[Errno 20\] Not "
+            r"a directory: '/dev/null/fail.key'$",
         ):
             jwt_gen_key(key_path)
 
@@ -54,8 +54,8 @@ class TestJWTGenKey(unittest.TestCase):
         key_path = Path("/dev/fail/fail.key")
         with self.assertRaisesRegex(
             JWTPrivateKeyGeneratorError,
-            "^Error while generating JWT key /dev/fail/fail.key: \[Errno 2\] No such "
-            "file or directory: '/dev/fail/fail.key'$",
+            r"^Error while generating JWT key /dev/fail/fail.key: \[Errno 2\] No such "
+            r"file or directory: '/dev/fail/fail.key'$",
         ):
             jwt_gen_key(key_path)
 
@@ -69,7 +69,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
     def test_load_noarg(self):
         with self.assertRaisesRegex(
             JWTPrivateKeyLoaderError,
-            "Either key value or a path must be given to load JWT private key",
+            r"Either key value or a path must be given to load JWT private key",
         ):
             JWTPrivateKeyFileLoader()
 
@@ -83,13 +83,13 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
     def test_load_empty_key(self):
         with self.assertRaisesRegex(
             JWTPrivateKeyLoaderError,
-            "Key loaded from file /dev/null is empty",
+            r"Key loaded from file /dev/null is empty",
         ):
             JWTPrivateKeyFileLoader(path=Path("/dev/null"))
 
     def test_load_unexisting_path(self):
         with self.assertRaisesRegex(
-            JWTPrivateKeyLoaderError, "Token private key file /dev/not-found not found"
+            JWTPrivateKeyLoaderError, r"Token private key file /dev/not-found not found"
         ):
             JWTPrivateKeyFileLoader(path=Path("/dev/not-found"))
 
@@ -98,7 +98,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             os.chmod(fh.name, 0o000)
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                f"Permission error to access private key file {fh.name}",
+                fr"Permission error to access private key file {fh.name}",
             ):
                 JWTPrivateKeyFileLoader(path=Path(fh.name))
 
@@ -108,8 +108,8 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             fh.flush()
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                f"Unable to decode private key file {fh.name}: '\S+' codec can't "
-                "decode byte 0x9a in position 4: invalid start byte$",
+                fr"Unable to decode private key file {fh.name}: '\S+' codec can't "
+                r"decode byte 0x9a in position 4: invalid start byte$",
             ):
                 JWTPrivateKeyFileLoader(path=Path(fh.name))
 
@@ -138,7 +138,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             os.rmdir(dir_name)
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                f"Token private key parent directory {dir_name} not found",
+                fr"Token private key parent directory {dir_name} not found",
             ):
                 JWTPrivateKeyFileLoader(path=key_path, create=True)
 
@@ -148,7 +148,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             key_path.parent.parent.chmod(0o500)
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                f"Permission denied to create key parent directory {key_path.parent}",
+                fr"Permission denied to create key parent directory {key_path.parent}",
             ):
                 JWTPrivateKeyFileLoader(path=key_path, create=True, create_parent=True)
 
@@ -165,7 +165,7 @@ class TestJWTManager(unittest.TestCase):
         manager = JWTManager("test", "FAIL", loader)
         with self.assertRaisesRegex(
             JWTEncodeError,
-            "^JWT token encode error: Algorithm not supported$",
+            r"^JWT token encode error: Algorithm not supported$",
         ):
             manager.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
 
@@ -174,7 +174,7 @@ class TestJWTManager(unittest.TestCase):
         manager = JWTManager("test", "HS256", loader)
         with self.assertRaisesRegex(
             JWTDecodeError,
-            "^Unable to decode token: Not enough segments$",
+            r"^Unable to decode token: Not enough segments$",
         ):
             manager.decode("FAIL")
 
@@ -186,7 +186,7 @@ class TestJWTManager(unittest.TestCase):
         token = manager1.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
         with self.assertRaisesRegex(
             JWTDecodeError,
-            "^Token signature is invalid$",
+            r"^Token signature is invalid$",
         ):
             manager2.decode(token)
 
@@ -197,6 +197,6 @@ class TestJWTManager(unittest.TestCase):
         token = manager1.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
         with self.assertRaisesRegex(
             JWTDecodeError,
-            "^Token audience is invalid$",
+            r"^Token audience is invalid$",
         ):
             manager2.decode(token)

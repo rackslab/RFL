@@ -91,12 +91,12 @@ class TestSettingsDefinition(unittest.TestCase):
 
     def test_invalid_yaml(self):
         with self.assertRaisesRegex(
-            SettingsDefinitionError, "^Invalid YAML settings definition: "
+            SettingsDefinitionError, r"^Invalid YAML settings definition: "
         ):
             SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION + "\n fail")
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^YAML scanner error: mapping values are not allowed here.*",
+            r"^YAML scanner error: mapping values are not allowed here.*",
         ):
             SettingsDefinitionLoaderYaml(raw="fail: again: ")
 
@@ -105,7 +105,7 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_int"]["unknown"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Unsupported properties found for \[section2\]>param_int: unknown$",
+            r"^Unsupported properties found for \[section2\]>param_int: unknown$",
         ):
             SettingsDefinition(loader)
 
@@ -114,7 +114,7 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_int"]["type"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Unsupported type fail for \[section2\]>param_int$",
+            r"^Unsupported type fail for \[section2\]>param_int$",
         ):
             SettingsDefinition(loader)
 
@@ -123,7 +123,7 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_required"]["required"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Invalid boolean value of \[section2\]>param_required required property$",
+            r"^Invalid boolean value of \[section2\]>param_required required property$",
         ):
             SettingsDefinition(loader)
 
@@ -132,8 +132,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_int"]["default"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value fail for parameter \[section2\]>param_int has not the "
-            "expected type int$",
+            r"^Default value fail for parameter \[section2\]>param_int has not the "
+            r"expected type int$",
         ):
             SettingsDefinition(loader)
 
@@ -142,8 +142,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_bool"]["default"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value fail for parameter \[section2\]>param_bool has not the "
-            "expected type bool$",
+            r"^Default value fail for parameter \[section2\]>param_bool has not the "
+            r"expected type bool$",
         ):
             SettingsDefinition(loader)
 
@@ -152,8 +152,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_int"]["default"] = 12
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value 12 for parameter \[section2\]>param_int is not one of "
-            "possible choices \[10, 100, 500\]$",
+            r"^Default value 12 for parameter \[section2\]>param_int is not one of "
+            r"possible choices \[10, 100, 500\]$",
         ):
             SettingsDefinition(loader)
 
@@ -162,8 +162,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_list"]["default"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value fail for parameter \[section2\]>param_list is not a valid "
-            "list$",
+            r"^Default value fail for parameter \[section2\]>param_list is not a valid "
+            r"list$",
         ):
             SettingsDefinition(loader)
 
@@ -172,7 +172,8 @@ class TestSettingsDefinition(unittest.TestCase):
         del loader.content["section2"]["param_list"]["content"]
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^List content type for parameter \[section2\]>param_list must be defined$",
+            r"^List content type for parameter \[section2\]>param_list must be "
+            r"defined$",
         ):
             SettingsDefinition(loader)
 
@@ -181,13 +182,13 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_list"]["content"] = "fail"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Unsupported list content type fail for \[section2\]>param_list$",
+            r"^Unsupported list content type fail for \[section2\]>param_list$",
         ):
             SettingsDefinition(loader)
         loader.content["section2"]["param_list"]["content"] = "list"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Unsupported list content type list for \[section2\]>param_list$",
+            r"^Unsupported list content type list for \[section2\]>param_list$",
         ):
             SettingsDefinition(loader)
 
@@ -196,8 +197,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_list"]["type"] = "str"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Content property is forbidden for parameter \[section2\]>param_list with "
-            "type str$",
+            r"^Content property is forbidden for parameter \[section2\]>param_list "
+            r"with type str$",
         ):
             SettingsDefinition(loader)
 
@@ -206,8 +207,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_list"]["content"] = "bool"
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value value1 for parameter \[section2\]>param_list has not the "
-            "expected type bool$",
+            r"^Default value value1 for parameter \[section2\]>param_list has not the "
+            r"expected type bool$",
         ):
             SettingsDefinition(loader)
 
@@ -216,8 +217,8 @@ class TestSettingsDefinition(unittest.TestCase):
         loader.content["section2"]["param_list"]["choices"] = ["value1", "value3"]
         with self.assertRaisesRegex(
             SettingsDefinitionError,
-            "^Default value value2 for parameter \[section2\]>param_list is not one of "
-            "possible choices \['value1', 'value3'\]$",
+            r"^Default value value2 for parameter \[section2\]>param_list is not one "
+            r"of possible choices \['value1', 'value3'\]$",
         ):
             SettingsDefinition(loader)
 
@@ -253,8 +254,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader.content["big"] = {}
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Section big loaded in settings overrides is not defined in "
-            "settings definition$",
+            r"^Section big loaded in settings overrides is not defined in "
+            r"settings definition$",
         ):
             settings.override(site_loader)
 
@@ -266,8 +267,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader.content["section2"]["unknown"] = "fail"
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Parameter unknown loaded in settings overrides is not defined in "
-            "section section2 of settings definition$",
+            r"^Parameter unknown loaded in settings overrides is not defined in "
+            r"section section2 of settings definition$",
         ):
             settings.override(site_loader)
 
@@ -279,8 +280,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader.content["section2"]["param_int"] = "fail"
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Invalid integer value 'fail' for \[section2\]>param_int in site "
-            "overrides$",
+            r"^Invalid integer value 'fail' for \[section2\]>param_int in site "
+            r"overrides$",
         ):
             settings.override(site_loader)
 
@@ -292,8 +293,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader.content["section2"]["param_float"] = "fail"
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Invalid float value 'fail' for \[section2\]>param_float in site "
-            "overrides$",
+            r"^Invalid float value 'fail' for \[section2\]>param_float in site "
+            r"overrides$",
         ):
             settings.override(site_loader)
 
@@ -305,8 +306,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader.content["section2"]["param_bool"] = "fail"
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Invalid boolean value 'fail' for \[section2\]>param_bool in site "
-            "overrides$",
+            r"^Invalid boolean value 'fail' for \[section2\]>param_bool in site "
+            r"overrides$",
         ):
             settings.override(site_loader)
 
@@ -318,8 +319,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader.content["section2"]["param_int"] = "12"
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Value 12 for parameter \[section2\]>param_int in site overrides is not "
-            "one of possible choices \[10, 100, 500\]$",
+            r"^Value 12 for parameter \[section2\]>param_int in site overrides is not "
+            r"one of possible choices \[10, 100, 500\]$",
         ):
             settings.override(site_loader)
 
@@ -331,8 +332,8 @@ class TestRuntimeSettings(unittest.TestCase):
         del site_loader.content["section2"]["param_required"]
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Parameter \[section2\]>param_required is missing but required in "
-            "settings overrides$",
+            r"^Parameter \[section2\]>param_required is missing but required in "
+            r"settings overrides$",
         ):
             settings.override(site_loader)
 
@@ -345,8 +346,8 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Invalid integer value 'value3' for \[section2\]>param_list in site "
-            "overrides$",
+            r"^Invalid integer value 'value3' for \[section2\]>param_list in site "
+            r"overrides$",
         ):
             settings.override(site_loader)
 
@@ -358,7 +359,7 @@ class TestRuntimeSettings(unittest.TestCase):
         site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
         with self.assertRaisesRegex(
             SettingsOverrideError,
-            "^Value value3 for parameter \[section2\]>param_list in site overrides is "
-            "not one of possible choices \['value1', 'value2'\]$",
+            r"^Value value3 for parameter \[section2\]>param_list in site overrides is "
+            r"not one of possible choices \['value1', 'value2'\]$",
         ):
             settings.override(site_loader)

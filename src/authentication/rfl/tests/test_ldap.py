@@ -96,13 +96,13 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_start_tls_s.side_effect = ldap.CONNECT_ERROR("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Unable to connect to LDAP server with STARTTLS: fail$",
+            r"^Unable to connect to LDAP server with STARTTLS: fail$",
         ):
             self.authentifier.connection()
         mock_start_tls_s.side_effect = ldap.SERVER_DOWN("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            f"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+            fr"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
         ):
             self.authentifier.connection()
 
@@ -149,7 +149,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         # call method
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^User john is not member of restricted groups$",
+            r"^User john is not member of restricted groups$",
         ):
             self.authentifier.login("john", "SECR3T")
 
@@ -165,7 +165,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_simple_bind_s.side_effect = ldap.SERVER_DOWN("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            f"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+            fr"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
         ):
             self.authentifier.login("john", "SECR3T")
         mock_simple_bind_s.side_effect = ldap.INVALID_CREDENTIALS("fail")
@@ -208,8 +208,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Unable to extract user full name with "
-            f"{self.authentifier.user_fullname_attribute} attribute from user entries$",
+            r"^Unable to extract user full name with "
+            fr"{self.authentifier.user_fullname_attribute} attribute from user "
+            r"entries$",
         ):
             self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
@@ -223,8 +224,8 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Unable to extract user primary group with gidNumber attribute from user "
-            "entries$",
+            r"^Unable to extract user primary group with gidNumber attribute from user "
+            r"entries$",
         ):
             self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
@@ -237,7 +238,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         connection.search_s.return_value = []
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            f"^User not found in LDAP with class {self.authentifier.user_class}$",
+            fr"^User not found in LDAP with class {self.authentifier.user_class}$",
         ):
             self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
@@ -250,7 +251,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         connection.search_s.side_effect = ldap.NO_SUCH_OBJECT("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            f"^Unable to find user DN uid=john,{self.authentifier.user_base}$",
+            fr"^Unable to find user DN uid=john,{self.authentifier.user_base}$",
         ):
             self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
@@ -274,7 +275,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         connection.search_s.side_effect = ldap.NO_SUCH_OBJECT("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            f"^Unable to find group base {self.authentifier.group_base}$",
+            fr"^Unable to find group base {self.authentifier.group_base}$",
         ):
             self.authentifier._get_groups(
                 connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
@@ -292,7 +293,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Unable to extract group name with fail attribute from group entries$",
+            r"^Unable to extract group name with fail attribute from group entries$",
         ):
             self.authentifier._get_groups(
                 connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
@@ -366,7 +367,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         connection.search_s.side_effect = ldap.NO_SUCH_OBJECT("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Unable to find user base ou=people,dc=corp,dc=org$",
+            r"^Unable to find user base ou=people,dc=corp,dc=org$",
         ):
             self.authentifier._list_user_dn(connection)
 
@@ -391,7 +392,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Unable to extract user uid from user entries$",
+            r"^Unable to extract user uid from user entries$",
         ):
             self.authentifier._list_user_dn(connection)
 
@@ -514,8 +515,8 @@ class TestLDAPAuthentifier(unittest.TestCase):
         # Check exception is raised when bind_dn is set without bind_password
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Password to authenticate with bind DN uid=hey,ou=people,dc=corp,dc=org "
-            "is required$",
+            r"^Password to authenticate with bind DN uid=hey,ou=people,dc=corp,dc=org "
+            r"is required$",
         ):
             self.authentifier.users()
 
@@ -530,7 +531,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         # Check exception is raised with LDAP fails due to invalid credential
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            "^Invalid bind DN or password$",
+            r"^Invalid bind DN or password$",
         ):
             self.authentifier.users()
 
@@ -539,6 +540,6 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_search_s.side_effect = ldap.SERVER_DOWN("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            f"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+            fr"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
         ):
             self.authentifier.users()

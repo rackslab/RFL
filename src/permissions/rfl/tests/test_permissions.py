@@ -69,7 +69,7 @@ class TestRBACPolicyDefinitionYAMLLoader(unittest.TestCase):
     def test_load_invalid_yaml(self):
         with self.assertRaisesRegex(
             RBACPolicyDefinitionLoadError,
-            "^Invalid YAML policy definition: while parsing a block mapping",
+            r"^Invalid YAML policy definition: while parsing a block mapping",
         ):
             RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION + "\n fail")
 
@@ -77,7 +77,7 @@ class TestRBACPolicyDefinitionYAMLLoader(unittest.TestCase):
         raw_definition = "fail:" + VALID_DEFINITION[6:]
         with self.assertRaisesRegex(
             RBACPolicyDefinitionLoadError,
-            "^Actions key not found in YAML policy definition$",
+            r"^Actions key not found in YAML policy definition$",
         ):
             RBACPolicyDefinitionYAMLLoader(raw=raw_definition)
 
@@ -85,8 +85,8 @@ class TestRBACPolicyDefinitionYAMLLoader(unittest.TestCase):
         raw_definition = "actions: fail"
         with self.assertRaisesRegex(
             RBACPolicyDefinitionLoadError,
-            "^Unable to extract the set of actions from actions key in YAML policy "
-            "definition$",
+            r"^Unable to extract the set of actions from actions key in YAML policy "
+            r"definition$",
         ):
             RBACPolicyDefinitionYAMLLoader(raw=raw_definition)
 
@@ -118,7 +118,7 @@ class TestRBACPolicyRolesIniLoader(unittest.TestCase):
         loader.content.remove_section("roles")
         with self.assertRaisesRegex(
             RBACPolicyRolesLoadError,
-            "^Section roles to define roles members is not defined in INI content$",
+            r"^Section roles to define roles members is not defined in INI content$",
         ):
             loader._load()
 
@@ -130,8 +130,8 @@ class TestRBACPolicyRolesIniLoader(unittest.TestCase):
         loader.content.remove_section("administrator")
         with self.assertRaisesRegex(
             RBACPolicyRolesLoadError,
-            "^Section to define actions for role administrator is not defined in INI "
-            "content$",
+            r"^Section to define actions for role administrator is not defined in INI "
+            r"content$",
         ):
             loader._load()
 
@@ -143,8 +143,8 @@ class TestRBACPolicyRolesIniLoader(unittest.TestCase):
         loader.content.remove_option("administrator", "actions")
         with self.assertRaisesRegex(
             RBACPolicyRolesLoadError,
-            "^Option to define actions for role administrator is not defined in INI "
-            "content$",
+            r"^Option to define actions for role administrator is not defined in INI "
+            r"content$",
         ):
             loader._load()
 
@@ -156,7 +156,7 @@ class TestRBACPolicyRolesIniLoader(unittest.TestCase):
         loader.content.set("administrator", "actions", "fail")
         with self.assertRaisesRegex(
             RBACPolicyRolesLoadError,
-            "^Action fail not found in policy definition$",
+            r"^Action fail not found in policy definition$",
         ):
             loader._load()
 
@@ -168,7 +168,7 @@ class TestRBACPolicyRolesIniLoader(unittest.TestCase):
         loader.content.set("administrator", "actions", "@fail")
         with self.assertRaisesRegex(
             RBACPolicyRolesLoadError,
-            "^Unable to inherit actions from role fail not found in policy$",
+            r"^Unable to inherit actions from role fail not found in policy$",
         ):
             loader._load()
 
