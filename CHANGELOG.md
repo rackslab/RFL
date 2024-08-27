@@ -11,6 +11,9 @@ and this project adheres to
 ### Added
 - core: Introduce `utils` module with `shlex_join` function to backport
   `shlex.join()` from Python >= 3.8.
+- auth: Add `user_primary_group_attribute` argument with default value
+  _gidNumber_ to `LDAPAuthentifier` class initializer to specify an alternative
+  user primary group ID attribute (#4).
 
 ### Fixed
 - auth: Handle `UnicodeDecodeError` when loading JWT private key (#3).
@@ -18,7 +21,7 @@ and this project adheres to
 ## [1.0.2] - 2024-06-19
 
 ### Added
-- auth: Add `user_name_attribute` argumetn with default value _uid_ to
+- auth: Add `user_name_attribute` argument with default value _uid_ to
   `LDAPAuthentifier` class initializer to specify an alternative user name
   attribute (#2).
 - build: Support explicit packages list without find, lack of dependencies, lack
