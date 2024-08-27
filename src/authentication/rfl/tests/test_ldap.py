@@ -328,8 +328,8 @@ class TestLDAPAuthentifier(unittest.TestCase):
 
     def test_get_groups_class_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
-        # If entries with posixGroup class is not found in group_base subtree, search_s
-        # returns an empty list.
+        # If entries with one of group_object_classes is not found in group_base
+        # subtree, search_s returns an empty list.
         connection.search_s.return_value = []
         with self.assertLogs("rfl.authentication.ldap", level="WARNING") as cm:
             groups = self.authentifier._get_groups(
@@ -343,6 +343,28 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 " john or gidNumber 42"
             ],
         )
+
+    def test_custom_group_object_classes(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        connection.search_s.return_value = [
+            ("cn=scientists,ou=groups,dc=corp,dc=org", {"cn": [b"scientists"]}),
+            ("cn=biology,ou=groups,dc=corp,dc=org", {"cn": [b"biology"]}),
+        ]
+        group_object_class = "group"
+        login = "john"
+        gid = 42
+        self.authentifier.group_object_classes = [group_object_class]
+        groups = self.authentifier._get_groups(
+            connection, login, f"uid={login},ou=people,dc=corp,dc=org", gid
+        )
+        connection.search_s.assert_called_once_with(
+            self.authentifier.group_base,
+            ldap.SCOPE_SUBTREE,
+            f"(&(|(objectClass={group_object_class}))(|(memberUid={login})"
+            f"(member=uid={login},ou=people,dc=corp,dc=org)(gidNumber={gid})))",
+            [self.authentifier.group_name_attribute],
+        )
+        self.assertEqual(groups, ["scientists", "biology"])
 
     def test_in_restricted_groups(self):
         # By default, restricted groups are unset, _in_restricted_groups must return
