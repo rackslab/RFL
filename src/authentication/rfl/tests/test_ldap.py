@@ -187,17 +187,17 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 {"cn": [b"John Doe"], "gidNumber": [b"42"]},
             )
         ]
-        fullname, gidNumber = self.authentifier._get_user_info(
+        fullname, gid = self.authentifier._get_user_info(
             connection, "uid=john,ou=people,dc=corp,dc=org"
         )
         self.assertEqual(fullname, "John Doe")
-        self.assertEqual(gidNumber, 42)
+        self.assertEqual(gid, 42)
 
     def test_user_info_attributes_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
         # If the user entries in LDAP directory do not contain attributes whose name
-        # matches user_fullname_attribute or gidNumber, search_s returns a dict with
-        # missing keys in the second element of the result tuple.
+        # matches user_fullname_attribute or user_primary_group_attribute, search_s
+        # returns a dict with missing keys in the second element of the result tuple.
         #
         # Test missing user_fullname_attribute
         connection.search_s.return_value = [
@@ -224,7 +224,8 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            r"^Unable to extract user primary group with gidNumber attribute from user "
+            r"^Unable to extract user primary group with "
+            fr"{self.authentifier.user_primary_group_attribute} attribute from user "
             r"entries$",
         ):
             self.authentifier._get_user_info(
@@ -256,6 +257,32 @@ class TestLDAPAuthentifier(unittest.TestCase):
             self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
             )
+
+    def test_custom_primary_attribute(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        self.authentifier.user_primary_group_attribute = "primaryGroupId"
+        dn = "uid=jane,ou=people,dc=corp,dc=org"
+        connection.search_s.return_value = [
+            (
+                dn,
+                {
+                    "cn": [b"Jane Smith"],
+                    self.authentifier.user_primary_group_attribute: [b"42"],
+                },
+            )
+        ]
+        fullname, gid = self.authentifier._get_user_info(connection, dn)
+        connection.search_s.assert_called_once_with(
+            dn,
+            ldap.SCOPE_BASE,
+            f"(objectClass={self.authentifier.user_class})",
+            [
+                self.authentifier.user_fullname_attribute,
+                self.authentifier.user_primary_group_attribute,
+            ],
+        )
+        self.assertEqual(fullname, "Jane Smith")
+        self.assertEqual(gid, 42)
 
     def test_get_groups(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
