@@ -11,9 +11,13 @@ and this project adheres to
 ### Added
 - core: Introduce `utils` module with `shlex_join` function to backport
   `shlex.join()` from Python >= 3.8.
-- auth: Add `user_primary_group_attribute` argument with default value
-  _gidNumber_ to `LDAPAuthentifier` class initializer to specify an alternative
-  user primary group ID attribute (#4).
+- auth:
+  - Add `user_primary_group_attribute` argument to `LDAPAuthentifier` class
+    initializer with default value _gidNumber_ to define an alternative
+    user primary group ID attribute (#4).
+  - Add `group_object_classes` argument to `LDAPAuthentifier` class
+    initializer with default values _posixGroup_ and _groupOfNames_ to define
+    alternative LDAP group object classes (#6).
 
 ### Fixed
 - auth: Handle `UnicodeDecodeError` when loading JWT private key (#3).

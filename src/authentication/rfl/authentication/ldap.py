@@ -28,6 +28,7 @@ class LDAPAuthentifier:
         user_fullname_attribute: str = "cn",
         user_primary_group_attribute: str = "gidNumber",
         group_name_attribute: str = "cn",
+        group_object_classes: Optional[List[str]] = None,
         cacert: Optional[Path] = None,
         starttls: bool = False,
         bind_dn: Optional[str] = None,
@@ -43,6 +44,12 @@ class LDAPAuthentifier:
         self.user_fullname_attribute = user_fullname_attribute
         self.user_primary_group_attribute = user_primary_group_attribute
         self.group_name_attribute = group_name_attribute
+        if group_object_classes is None:
+            # Standard RFC 2307 (aka. NIS) schema has group entries with posixGroup
+            # structural class. RFC 2307 bis schema has group entries with generally at
+            # least groupOfNames class.
+            group_object_classes = ["posixGroup", "groupOfNames"]
+        self.group_object_classes = group_object_classes
         self.starttls = starttls
         self.bind_dn = bind_dn
         self.bind_password = bind_password
@@ -146,18 +153,22 @@ class LDAPAuthentifier:
         """Return the list of groups whose provided user is member, including its
         primary group ID. This function supports both RFC 2307 (aka. NIS schema) and
         RFC 2307bis schema."""
-        # Standard RFC 2307 (aka. NIS) schema has group entries with posixGroup
-        # structural class. Group members are declared with memberUid attributes (with
-        # user cn as values).
+        # In standard RFC 2307 (aka. NIS) schema, group members are declared with
+        # memberUid attributes (with user cn as values).
         #
-        # RFC 2307 bis schema has group entries with generally at least groupOfNames
-        # class and group members are declared with member attributes (with full user dn
-        # as values).
+        # In RFC 2307 bis schema, group members are declared with member attributes
+        # (with full user dn as values).
         #
         # In both cases, user primary group declared in user entry must not be forgiven.
+        object_class_filter = "".join(
+            [
+                f"(objectClass={object_class})"
+                for object_class in self.group_object_classes
+            ]
+        )
         search_filter = (
             "(&"
-            "(|(objectClass=posixGroup)(objectClass=groupOfNames))"
+            f"(|{object_class_filter})"
             f"(|(memberUid={user_name})(member={user_dn})(gidNumber={gid})))"
         )
         try:
