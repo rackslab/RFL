@@ -19,6 +19,10 @@ and this project adheres to
     initializer with default values _posixGroup_ and _groupOfNames_ to define
     alternative LDAP group object classes (#6).
 
+### Changed
+- auth: Support absence of primary group attribute optional in LDAP user
+  entries (#5).
+
 ### Fixed
 - auth: Handle `UnicodeDecodeError` when loading JWT private key (#3).
 

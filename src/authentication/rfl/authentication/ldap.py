@@ -136,11 +136,13 @@ class LDAPAuthentifier:
             ) from err
         try:
             gid = int(results[0][1][self.user_primary_group_attribute][0])
-        except KeyError as err:
-            raise LDAPAuthenticationError(
-                "Unable to extract user primary group with "
-                f"{self.user_primary_group_attribute} attribute from user entries"
-            ) from err
+        except KeyError:
+            logger.warning(
+                "Unable to extract user primary group with %s attribute from user "
+                "entry",
+                self.user_primary_group_attribute
+            )
+            gid = None
         return fullname, gid
 
     def _get_groups(
@@ -148,7 +150,7 @@ class LDAPAuthentifier:
         connection: ldap.ldapobject.LDAPObject,
         user_name: str,
         user_dn: str,
-        gid: int,
+        gid: Optional[int],
     ) -> List[str]:
         """Return the list of groups whose provided user is member, including its
         primary group ID. This function supports both RFC 2307 (aka. NIS schema) and
@@ -159,17 +161,19 @@ class LDAPAuthentifier:
         # In RFC 2307 bis schema, group members are declared with member attributes
         # (with full user dn as values).
         #
-        # In both cases, user primary group declared in user entry must not be forgiven.
+        # In both cases, user primary group declared in user entry (gid argument) must
+        # not be forgiven if defined.
         object_class_filter = "".join(
             [
                 f"(objectClass={object_class})"
                 for object_class in self.group_object_classes
             ]
         )
+        gid_filter = f"(gidNumber={gid})" if gid is not None else ""
         search_filter = (
             "(&"
             f"(|{object_class_filter})"
-            f"(|(memberUid={user_name})(member={user_dn})(gidNumber={gid})))"
+            f"(|(memberUid={user_name})(member={user_dn}){gid_filter}))"
         )
         try:
             results = connection.search_s(
@@ -190,9 +194,9 @@ class LDAPAuthentifier:
         )
         if not len(results):
             logger.warning(
-                "Unable to find groups in LDAP for user %s or gidNumber %s",
+                "Unable to find groups in LDAP for user %s%s",
                 user_name,
-                gid,
+                f" or gidNumber {gid}" if gid is not None else "",
             )
         try:
             return [
