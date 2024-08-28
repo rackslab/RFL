@@ -193,7 +193,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         self.assertEqual(fullname, "John Doe")
         self.assertEqual(gid, 42)
 
-    def test_user_info_attributes_not_found(self):
+    def test_user_info_fullname_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
         # If the user entries in LDAP directory do not contain attributes whose name
         # matches user_fullname_attribute or user_primary_group_attribute, search_s
@@ -215,6 +215,9 @@ class TestLDAPAuthentifier(unittest.TestCase):
             self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
             )
+
+    def test_user_info_primary_group_not_found(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
         # Test missing gidNumber
         connection.search_s.return_value = [
             (
@@ -222,15 +225,19 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 {"cn": [b"John Doe"]},
             )
         ]
-        with self.assertRaisesRegex(
-            LDAPAuthenticationError,
-            r"^Unable to extract user primary group with "
-            fr"{self.authentifier.user_primary_group_attribute} attribute from user "
-            r"entries$",
-        ):
-            self.authentifier._get_user_info(
+        with self.assertLogs("rfl", level="WARNING") as log:
+            fullname, gid = self.authentifier._get_user_info(
                 connection, "uid=john,ou=people,dc=corp,dc=org"
             )
+            self.assertEqual(
+                [
+                    "WARNING:rfl.authentication.ldap:Unable to extract user primary "
+                    "group with gidNumber attribute from user entry"
+                ],
+                log.output,
+            )
+        self.assertEqual(fullname, "John Doe")
+        self.assertIsNone(gid)
 
     def test_user_info_class_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
@@ -295,6 +302,38 @@ class TestLDAPAuthentifier(unittest.TestCase):
         )
         self.assertEqual(groups, ["scientists", "biology"])
 
+    def test_get_groups_without_gid(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        connection.search_s.return_value = [
+            ("cn=scientists,ou=groups,dc=corp,dc=org", {"cn": [b"scientists"]}),
+            ("cn=biology,ou=groups,dc=corp,dc=org", {"cn": [b"biology"]}),
+        ]
+        user = "john"
+        dn = "uid=john,ou=people,dc=corp,dc=org"
+        gid = 42
+        # First call with gid and check LDAP search filter.
+        groups = self.authentifier._get_groups(connection, user, dn, gid)
+        self.assertEqual(groups, ["scientists", "biology"])
+        connection.search_s.assert_called_once_with(
+            self.authentifier.group_base,
+            ldap.SCOPE_SUBTREE,
+            "(&(|(objectClass=posixGroup)(objectClass=groupOfNames))"
+            f"(|(memberUid={user})(member={dn})(gidNumber={gid})))",
+            [self.authentifier.group_name_attribute],
+        )
+        connection.search_s.reset_mock()
+        # Then a second call with undefined gid must remove gidNumber from LDAP search
+        # filter.
+        groups = self.authentifier._get_groups(connection, user, dn, None)
+        self.assertEqual(groups, ["scientists", "biology"])
+        connection.search_s.assert_called_once_with(
+            self.authentifier.group_base,
+            ldap.SCOPE_SUBTREE,
+            "(&(|(objectClass=posixGroup)(objectClass=groupOfNames))"
+            f"(|(memberUid={user})(member={dn})))",
+            [self.authentifier.group_name_attribute],
+        )
+
     def test_groups_base_not_found(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
         # When group base DN is not found in LDAP, ldap module raises NO_SUCH_OBJECT
@@ -343,7 +382,19 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 " john or gidNumber 42"
             ],
         )
-
+        # Test log message without gid
+        with self.assertLogs("rfl.authentication.ldap", level="WARNING") as cm:
+            groups = self.authentifier._get_groups(
+                connection, "john", "uid=john,ou=people,dc=corp,dc=org", None
+            )
+        self.assertEqual(groups, [])
+        self.assertEqual(
+            cm.output,
+            [
+                "WARNING:rfl.authentication.ldap:Unable to find groups in LDAP for user"
+                " john"
+            ],
+        )
     def test_custom_group_object_classes(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
         connection.search_s.return_value = [
