@@ -40,6 +40,9 @@ class TestJWTGenKey(unittest.TestCase):
                 r"Permission denied: '.+/private.key'$",
             ):
                 jwt_gen_key(key_path)
+            # Restore mode on temporary so it can be removed without permissions
+            # error.
+            os.chmod(dir_name, 0o755)
 
     def test_gen_key_parent_file(self):
         key_path = Path("/dev/null/fail.key")
@@ -133,14 +136,14 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
         self.assertEqual(str(loader.path), str(key_path))
 
     def test_load_missing_parent(self):
-        with tempfile.TemporaryDirectory() as dir_name:
-            key_path = Path(dir_name, "private.key")
-            os.rmdir(dir_name)
-            with self.assertRaisesRegex(
-                JWTPrivateKeyLoaderError,
-                fr"Token private key parent directory {dir_name} not found",
-            ):
-                JWTPrivateKeyFileLoader(path=key_path, create=True)
+        # Get random temporary filename without creating it.
+        dir_name = next(tempfile._get_candidate_names())
+        key_path = Path(dir_name, "private.key")
+        with self.assertRaisesRegex(
+            JWTPrivateKeyLoaderError,
+            fr"Token private key parent directory {dir_name} not found",
+        ):
+            JWTPrivateKeyFileLoader(path=key_path, create=True)
 
     def test_load_create_parent_permission_denied(self):
         with tempfile.TemporaryDirectory() as dir_name:
