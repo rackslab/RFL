@@ -140,7 +140,7 @@ class LDAPAuthentifier:
             logger.warning(
                 "Unable to extract user primary group with %s attribute from user "
                 "entry",
-                self.user_primary_group_attribute
+                self.user_primary_group_attribute,
             )
             gid = None
         return fullname, gid
@@ -309,7 +309,7 @@ class LDAPAuthentifier:
                 raise LDAPAuthenticationError("Invalid bind DN or password") from err
 
         try:
-            for (user, user_dn) in self._list_user_dn(connection):
+            for user, user_dn in self._list_user_dn(connection):
                 fullname, gid = self._get_user_info(connection, user_dn)
                 groups = []
                 if with_groups:

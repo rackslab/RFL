@@ -101,7 +101,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             os.chmod(fh.name, 0o000)
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                fr"Permission error to access private key file {fh.name}",
+                rf"Permission error to access private key file {fh.name}",
             ):
                 JWTPrivateKeyFileLoader(path=Path(fh.name))
 
@@ -111,7 +111,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             fh.flush()
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                fr"Unable to decode private key file {fh.name}: '\S+' codec can't "
+                rf"Unable to decode private key file {fh.name}: '\S+' codec can't "
                 r"decode byte 0x9a in position 4: invalid start byte$",
             ):
                 JWTPrivateKeyFileLoader(path=Path(fh.name))
@@ -141,7 +141,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
         key_path = Path(dir_name, "private.key")
         with self.assertRaisesRegex(
             JWTPrivateKeyLoaderError,
-            fr"Token private key parent directory {dir_name} not found",
+            rf"Token private key parent directory {dir_name} not found",
         ):
             JWTPrivateKeyFileLoader(path=key_path, create=True)
 
@@ -151,7 +151,7 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             key_path.parent.parent.chmod(0o500)
             with self.assertRaisesRegex(
                 JWTPrivateKeyLoaderError,
-                fr"Permission denied to create key parent directory {key_path.parent}",
+                rf"Permission denied to create key parent directory {key_path.parent}",
             ):
                 JWTPrivateKeyFileLoader(path=key_path, create=True, create_parent=True)
 
