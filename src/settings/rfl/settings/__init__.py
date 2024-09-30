@@ -22,10 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 class RuntimeSettingsSection:
-    def __init__(self, section: SettingsSectionDefinition):
+    def __init__(self, section: SettingsSectionDefinition, origin: str):
         self._name = section.name
+        self._origin = {}
         for parameter in section.parameters:
             setattr(self, parameter.name, parameter.default)
+            self._origin[parameter.name] = origin
 
 
 class RuntimeSettings:
@@ -38,7 +40,7 @@ class RuntimeSettings:
                 f"{self.__class__.__name__}{section.name.capitalize()}",
                 (RuntimeSettingsSection,),
                 dict(),
-            )(section)
+            )(section, definition.loader.name)
             setattr(self, o_section._name, o_section)
             self._sections.add(o_section._name)
 
@@ -99,6 +101,7 @@ class RuntimeSettings:
             value = self._load_parameter_value(parameter, parameter._type, raw)
             self._validate_choice(parameter, value)
         setattr(getattr(self, section.name), parameter.name, value)
+        getattr(self, section.name)._origin[parameter.name] = loader.name
 
     def _load_parameter_value(self, parameter, _type: str, raw: str):
         """Try to convert raw value to expected type or raise SettingsOverrideError."""
@@ -142,6 +145,18 @@ class RuntimeSettings:
                 f"Value {value} for parameter {parameter} in site overrides is "
                 f"not one of possible choices {parameter.choices}"
             )
+
+    def dump(self):
+        """Print configuration parameters grouped by section, with the origin of their
+        value (definition or site) on standard output."""
+        for section_name in sorted(self._sections):
+            print(f"[{section_name}]")
+            section = getattr(self, section_name)
+            for parameter_name, origin in section._origin.items():
+                print(
+                    f"  {parameter_name}: {getattr(section, parameter_name)} "
+                    f"({origin})",
+                )
 
     def override_ini(self, path: Path) -> None:
         self.override(RuntimeSettingsSiteLoaderIni(path=path))

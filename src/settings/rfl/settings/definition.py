@@ -21,6 +21,7 @@ class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
         try:
             if raw is not None:
                 self.content = yaml.safe_load(raw)
+                self.name = "definition:yaml:raw"
             elif path is not None:
                 try:
                     with open(path) as fh:
@@ -29,6 +30,7 @@ class SettingsDefinitionLoaderYaml(SettingsDefinitionLoader):
                     raise SettingsDefinitionError(
                         f"Settings definition file {path} not found"
                     ) from err
+                self.name = f"def:yaml:{path}"
             else:
                 raise SettingsDefinitionError(
                     "Either a raw string value or a path must be given to load YAML "
@@ -183,6 +185,7 @@ class SettingsSectionDefinition:
 
 class SettingsDefinition:
     def __init__(self, loader: SettingsDefinitionLoader):
+        self.loader = loader
         self.sections = [
             SettingsSectionDefinition(section, parameters)
             for section, parameters in loader.content.items()

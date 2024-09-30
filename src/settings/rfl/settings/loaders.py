@@ -26,9 +26,11 @@ class RuntimeSettingsSiteLoaderIni(RuntimeSettingsSiteLoader):
             if raw is not None:
                 logger.debug("Loading site settings in INI format from raw value")
                 self.content.read_string(raw)
+                self.name = "site:ini:raw"
             elif path is not None:
                 logger.debug("Loading site settings file %s", path)
                 self.content.read(path)
+                self.name = f"site:ini:{path}"
             else:
                 raise SettingsSiteLoaderError(
                     "Either a raw string value or a path must be given to load site "
