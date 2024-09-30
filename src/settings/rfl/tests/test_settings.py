@@ -54,6 +54,8 @@ section2:
     param_required:
         type: str
         required: true
+    param_password:
+        type: password
 """
 
 VALID_SITE = """
@@ -67,6 +69,7 @@ param_list =
   #value4
   value5
 param_required = required_value
+param_password = SECR3T
 """
 
 
@@ -384,9 +387,11 @@ class TestRuntimeSettings(unittest.TestCase):
             "  param_int: 10 (definition:yaml:raw)\n"
             "  param_path: /site/path/to/file (site:ini:raw)\n"
             "  param_uri: ParseResult(scheme='https', netloc='localhost:5900', "
-            "path='/resources', params='', query='', fragment='') (definition:yaml:raw)\n"
+            "path='/resources', params='', query='', fragment='') "
+            "(definition:yaml:raw)\n"
             "  param_float: None (definition:yaml:raw)\n"
             "  param_bool: True (definition:yaml:raw)\n"
             "  param_list: ['value3', 'value5'] (site:ini:raw)\n"
-            "  param_required: required_value (site:ini:raw)\n",
+            "  param_required: required_value (site:ini:raw)\n"
+            "  param_password: •••••• (site:ini:raw)\n",
         )
