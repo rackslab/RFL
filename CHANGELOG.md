@@ -16,6 +16,8 @@ and this project adheres to
     `RuntimeSettingsSiteLoaderIni` classes.
   - Add `_origin` dict attribute on `RuntimeSettingsSection` to keep tracks of
     origin of parameters values.
+  - Support new `password` type of parameters, similar to strings but it is not
+    printed as clear text when dumped (#7).
 
 ## [1.0.3] - 2024-08-30
 

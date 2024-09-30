@@ -58,6 +58,7 @@ class SettingsParameterDefinition:
     }
     EXPECTED_TYPES = {
         "str": str,
+        "password": str,
         "int": int,
         "float": float,
         "path": Path,

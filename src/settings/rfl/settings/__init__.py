@@ -153,9 +153,17 @@ class RuntimeSettings:
             print(f"[{section_name}]")
             section = getattr(self, section_name)
             for parameter_name, origin in section._origin.items():
+                value = getattr(section, parameter_name)
+                # Hide passwords
+                if value is not None and (
+                    self._definition.section(section_name)
+                    .parameter(parameter_name)
+                    ._type
+                    == "password"
+                ):
+                    value = "•" * len(value)
                 print(
-                    f"  {parameter_name}: {getattr(section, parameter_name)} "
-                    f"({origin})",
+                    f"  {parameter_name}: {value} " f"({origin})",
                 )
 
     def override_ini(self, path: Path) -> None:
