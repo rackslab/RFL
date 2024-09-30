@@ -6,6 +6,8 @@
 
 import unittest
 from pathlib import Path
+from io import StringIO
+from unittest.mock import patch
 
 from rfl.settings.definition import SettingsDefinition, SettingsDefinitionLoaderYaml
 from rfl.settings.loaders import RuntimeSettingsSiteLoaderIni
@@ -71,6 +73,7 @@ param_required = required_value
 class TestSettingsDefinition(unittest.TestCase):
     def test_valid_content(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        self.assertEqual(loader.name, "definition:yaml:raw")
         definition = SettingsDefinition(loader)
         self.assertTrue(definition.has_section("section1"))
         self.assertFalse(definition.has_section("unknown"))
@@ -241,6 +244,7 @@ class TestRuntimeSettings(unittest.TestCase):
         definition = SettingsDefinition(def_loader)
         settings = RuntimeSettings(definition)
         site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        self.assertEqual(site_loader.name, "site:ini:raw")
         settings.override(site_loader)
         self.assertEqual(settings.section1.param_str, "site_value1")
         self.assertEqual(settings.section2.param_path, Path("/site/path/to/file"))
@@ -363,3 +367,26 @@ class TestRuntimeSettings(unittest.TestCase):
             r"not one of possible choices \['value1', 'value2'\]$",
         ):
             settings.override(site_loader)
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_dump(self, mock_stdout):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        settings.override(site_loader)
+        settings.dump()
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            "[section1]\n"
+            "  param_str: site_value1 (site:ini:raw)\n"
+            "[section2]\n"
+            "  param_int: 10 (definition:yaml:raw)\n"
+            "  param_path: /site/path/to/file (site:ini:raw)\n"
+            "  param_uri: ParseResult(scheme='https', netloc='localhost:5900', "
+            "path='/resources', params='', query='', fragment='') (definition:yaml:raw)\n"
+            "  param_float: None (definition:yaml:raw)\n"
+            "  param_bool: True (definition:yaml:raw)\n"
+            "  param_list: ['value3', 'value5'] (site:ini:raw)\n"
+            "  param_required: required_value (site:ini:raw)\n",
+        )

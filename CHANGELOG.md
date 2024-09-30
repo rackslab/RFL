@@ -10,7 +10,8 @@ and this project adheres to
 
 ### Added
 - settings:
-  - Add `dump()` method on to print se
+  - Add `dump()` method on `RuntimeSettings` class to print all settings with
+    their value and origin on standard output.
   - Add `name` attribute on `SettingsDefinitionLoaderYaml` and
     `RuntimeSettingsSiteLoaderIni` classes.
   - Add `_origin` dict attribute on `RuntimeSettingsSection` to keep tracks of
