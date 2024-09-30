@@ -35,6 +35,7 @@ def setup_logger(
     handler.setLevel(logging_level)
     formatter = formatter(debug)
     handler.setFormatter(formatter)
+
     # filter out all libs logs not enabled in flags
     def custom_filter(record):
         component = record.name.split(".")[0]
