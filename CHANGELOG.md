@@ -9,6 +9,8 @@ and this project adheres to
 ## [unreleased]
 
 ### Added
+- core: Introduce `asyncio` module with `asyncio_run()` wrapper with a
+  backported version of `asyncio.run()` compatible with Python 3.6 (#11).
 - settings:
   - Add `dump()` method on `RuntimeSettings` class to print all settings with
     their value and origin on standard output.
