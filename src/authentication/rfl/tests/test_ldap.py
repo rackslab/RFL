@@ -486,16 +486,43 @@ class TestLDAPAuthentifier(unittest.TestCase):
             )
         self.assertEqual(len(results), 0)
 
-    def test_list_user_dn_no_uid(self):
+    def test_list_user_dn_no_user_name_attribute(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        # All results miss the user name attribute, _list_user_dn() is expected to raise
+        # LDAPAuthenticationError.
         connection.search_s.return_value = [
             ("uid=john,ou=people,dc=corp,dc=org", {}),
+            ("uid=jane,ou=people,dc=corp,dc=org", {}),
         ]
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
             r"^Unable to extract user uid from user entries$",
         ):
             self.authentifier._list_user_dn(connection)
+
+    def test_list_user_dn_missing_user_name_attribute(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        # At least one result has the user name attribute, _list_user_dn() must return
+        # these results and log warning message for other dn that miss this attribute.
+        connection.search_s.return_value = [
+            ("uid=john,ou=people,dc=corp,dc=org", {}),
+            ("uid=jane,ou=people,dc=corp,dc=org", {"uid": [b"jane"]}),
+        ]
+        with self.assertLogs("rfl", level="INFO") as lc:
+            results = self.authentifier._list_user_dn(connection)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0], ("jane", "uid=jane,ou=people,dc=corp,dc=org"))
+
+        # Check warning message to indicate user name attribute has not been found in
+        # john user entry has been sent
+        self.assertEqual(
+            [
+                "WARNING:rfl.authentication.ldap:Unable to find uid from user entry "
+                "uid=john,ou=people,dc=corp,dc=org"
+            ],
+            lc.output,
+        )
 
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch.object(LDAPAuthentifier, "_list_user_dn")
