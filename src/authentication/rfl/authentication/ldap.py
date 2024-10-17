@@ -276,15 +276,28 @@ class LDAPAuthentifier:
                 "Unable to find users in LDAP in base %s subtree",
                 self.user_base,
             )
-        try:
-            return [
-                (result[1][self.user_name_attribute][0].decode(), result[0])
-                for result in results
-            ]
-        except KeyError as err:
+            # Return an empty list to avoid further processing.
+            return []
+
+        # Pick results where user name attribute is found. If attribute not found in
+        # any result, raise LDAPAuthenticationError.
+        user_name_attribute_found = False
+        picked = []
+        for result in results:
+            if self.user_name_attribute not in result[1]:
+                logger.warning(
+                    "Unable to find %s from user entry %s",
+                    self.user_name_attribute,
+                    result[0],
+                )
+                continue
+            user_name_attribute_found = True
+            picked.append((result[1][self.user_name_attribute][0].decode(), result[0]))
+        if not user_name_attribute_found:
             raise LDAPAuthenticationError(
                 f"Unable to extract user {self.user_name_attribute} from user entries"
-            ) from err
+            )
+        return picked
 
     def users(self, with_groups: bool = False) -> List[AuthenticatedUser]:
         """Return list of AuthenticatedUser available in LDAP directory. If with_groups

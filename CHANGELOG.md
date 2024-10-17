@@ -21,6 +21,13 @@ and this project adheres to
   - Support new `password` type of parameters, similar to strings but it is not
     printed as clear text when dumped (#7).
 
+### Fixed
+- auth: When retrieving users with `users()` method, raise
+  `LDAPAuthenticationError` only when user name attribute is missing in all
+  retrieved user entries, instead of raising as soon as it is missing in any
+  user entry. Warning log message is emitted for all user entries that miss the
+  attribute (#12).
+
 ## [1.0.3] - 2024-08-30
 
 ### Added
