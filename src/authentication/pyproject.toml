@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RFL.authentication"
-version = "1.0.3"
+version = "1.1.0"
 description = "Rackslab Foundation Library: authentication package"
 license = {text = "GPLv3+"}
 requires-python = ">=3.6"
