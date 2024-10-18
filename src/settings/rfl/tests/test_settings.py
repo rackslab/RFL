@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from io import StringIO
 from unittest.mock import patch
+import ipaddress
 
 from rfl.settings.definition import SettingsDefinition, SettingsDefinitionLoaderYaml
 from rfl.settings.loaders import RuntimeSettingsSiteLoaderIni
@@ -56,6 +57,10 @@ section2:
         required: true
     param_password:
         type: password
+    param_ip:
+        type: ip
+    param_network:
+        type: network
 """
 
 VALID_SITE = """
@@ -70,6 +75,8 @@ param_list =
   value5
 param_required = required_value
 param_password = SECR3T
+param_ip = 127.0.0.1
+param_network = 127.0.0.0/24
 """
 
 
@@ -150,6 +157,25 @@ class TestSettingsDefinition(unittest.TestCase):
             SettingsDefinitionError,
             r"^Default value fail for parameter \[section2\]>param_bool has not the "
             r"expected type bool$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_default_invalid_type_ip(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_ip"]["default"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Invalid default ip address value for parameter \[section2\]>param_ip$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_default_invalid_type_network(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_network"]["default"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Invalid default ip network value for parameter "
+            r"\[section2\]>param_network$",
         ):
             SettingsDefinition(loader)
 
@@ -252,6 +278,12 @@ class TestRuntimeSettings(unittest.TestCase):
         self.assertEqual(settings.section1.param_str, "site_value1")
         self.assertEqual(settings.section2.param_path, Path("/site/path/to/file"))
         self.assertEqual(settings.section2.param_list, ["value3", "value5"])
+        self.assertIsInstance(settings.section2.param_ip, ipaddress.IPv4Address)
+        self.assertEqual(str(settings.section2.param_ip), "127.0.0.1")
+        self.assertTrue(settings.section2.param_ip.is_loopback)
+        self.assertIsInstance(settings.section2.param_network, ipaddress.IPv4Network)
+        self.assertEqual(str(settings.section2.param_network), "127.0.0.0/24")
+        self.assertTrue(settings.section2.param_network.is_loopback)
 
     def test_site_override_invalid_section(self):
         def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
@@ -314,6 +346,55 @@ class TestRuntimeSettings(unittest.TestCase):
         with self.assertRaisesRegex(
             SettingsOverrideError,
             r"^Invalid boolean value 'fail' for \[section2\]>param_bool in site "
+            r"overrides$",
+        ):
+            settings.override(site_loader)
+
+    def test_site_override_type_ip_ipv6(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        site_loader.content["section2"]["param_ip"] = "::1"
+        settings.override(site_loader)
+        self.assertIsInstance(settings.section2.param_ip, ipaddress.IPv6Address)
+        self.assertEqual(str(settings.section2.param_ip), "::1")
+        self.assertTrue(settings.section2.param_ip.is_loopback)
+
+    def test_site_override_invalid_type_ip(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        site_loader.content["section2"]["param_ip"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsOverrideError,
+            r"^Invalid ip address value 'fail' for \[section2\]>param_ip in site "
+            r"overrides$",
+        ):
+            settings.override(site_loader)
+
+    def test_site_override_type_network_ipv6(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        addr = "fd1a:aa9b:7d8b:cfbe::/64"  # Use random private network for this test
+        site_loader.content["section2"]["param_network"] = addr
+        settings.override(site_loader)
+        self.assertIsInstance(settings.section2.param_network, ipaddress.IPv6Network)
+        self.assertEqual(str(settings.section2.param_network), addr)
+        self.assertTrue(settings.section2.param_network.is_private)
+
+    def test_site_override_invalid_type_network(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        site_loader.content["section2"]["param_network"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsOverrideError,
+            r"^Invalid ip network value 'fail' for \[section2\]>param_network in site "
             r"overrides$",
         ):
             settings.override(site_loader)
@@ -393,5 +474,7 @@ class TestRuntimeSettings(unittest.TestCase):
             "  param_bool: True (definition:yaml:raw)\n"
             "  param_list: ['value3', 'value5'] (site:ini:raw)\n"
             "  param_required: required_value (site:ini:raw)\n"
-            "  param_password: •••••• (site:ini:raw)\n",
+            "  param_password: •••••• (site:ini:raw)\n"
+            "  param_ip: 127.0.0.1 (site:ini:raw)\n"
+            "  param_network: 127.0.0.0/24 (site:ini:raw)\n",
         )
