@@ -6,6 +6,7 @@
 
 from pathlib import Path
 import urllib
+import ipaddress
 
 import logging
 
@@ -111,6 +112,22 @@ class RuntimeSettings:
         elif _type == "uri":
             # Converting a string to a urllib.ParseResult basically never fails.
             return urllib.parse.urlparse(raw)
+        elif _type == "ip":
+            try:
+                return ipaddress.ip_address(raw)
+            except ValueError as err:
+                raise SettingsOverrideError(
+                    f"Invalid ip address value '{raw}' for {parameter} in site "
+                    "overrides"
+                ) from err
+        elif _type == "network":
+            try:
+                return ipaddress.ip_network(raw)
+            except ValueError as err:
+                raise SettingsOverrideError(
+                    f"Invalid ip network value '{raw}' for {parameter} in site "
+                    "overrides"
+                ) from err
         elif _type == "int":
             try:
                 return int(raw)
@@ -155,6 +172,13 @@ class RuntimeSettings:
             for parameter_name, origin in section._origin.items():
                 value = getattr(section, parameter_name)
                 # Hide passwords
+                if value is not None and (
+                    self._definition.section(section_name)
+                    .parameter(parameter_name)
+                    ._type
+                    == "password"
+                ):
+                    value = "•" * len(value)
                 if value is not None and (
                     self._definition.section(section_name)
                     .parameter(parameter_name)

@@ -20,6 +20,9 @@ and this project adheres to
     origin of parameters values.
   - Support new `password` type of parameters, similar to strings but it is not
     printed as clear text when dumped (#7).
+  - Support new `ip` and `network` types of parameters which return Python
+    `ipaddress.IPv{4,6}Address` and `ipaddress.IPv{4,6}Network` objects
+    respectively (#8).
 
 ### Fixed
 - auth: When retrieving users with `users()` method, raise

@@ -6,6 +6,7 @@
 
 from pathlib import Path
 import urllib
+import ipaddress
 
 import yaml
 
@@ -64,6 +65,8 @@ class SettingsParameterDefinition:
         "path": Path,
         "bool": bool,
         "uri": urllib.parse.ParseResult,
+        "ip": ipaddress._BaseAddress,
+        "network": ipaddress._BaseNetwork,
         "list": list,
     }
 
@@ -144,6 +147,20 @@ class SettingsParameterDefinition:
             return Path(default)
         elif _type == "uri":
             return urllib.parse.urlparse(default)
+        elif _type == "ip":
+            try:
+                ipaddress.ip_address(default)
+            except ValueError as err:
+                raise SettingsDefinitionError(
+                    f"Invalid default ip address value for parameter {str(self)}"
+                ) from err
+        elif _type == "network":
+            try:
+                ipaddress.ip_network(default)
+            except ValueError as err:
+                raise SettingsDefinitionError(
+                    f"Invalid default ip network value for parameter {str(self)}"
+                ) from err
         if not isinstance(default, self.EXPECTED_TYPES[_type]):
             raise SettingsDefinitionError(
                 f"Default value {default} for parameter {str(self)} has not "
