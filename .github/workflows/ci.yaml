@@ -1,0 +1,76 @@
+---
+name: Automated Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        include:
+          - os: "ubuntu-20.04"
+            python-version: "3.6"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install tests dependencies
+        run: |
+          sudo apt-get install -y build-essential python3-dev libldap2-dev libsasl2-dev
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      # Unfortunately, pip and setuptools in python 3.6 does not support packages
+      # namespaces and PEP517 pyproject.toml. As a workaround for this version, the
+      # setup.py script provided by build package is copied and executed for all
+      # packages.
+      #
+      # This setup.py script does not handle dependencies properly, thus they are
+      # installed manually. Note the version is fixed for some external dependencies as
+      # latest version of these packages do not support Python 3.6 anymore.
+      #
+      # Note setup.py --root option is used to avoid installation of egg that are not
+      # properly supported by pytest --import-mode=importlib
+      - name: Install application (Python 3.6)
+        if: ${{ matrix.python-version == '3.6' }}
+        run: |
+          echo "::notice::Installing tomli (old version)"
+          pip install tomli==1.2.3
+          echo "::notice::Installing PyYAML (old version)"
+          pip install PyYAML==5.4.1
+          echo "::notice::Installing PyJWT (old version)"
+          pip install PyJWT==2.4.0
+          echo "::notice::Installing python-ldap"
+          pip install python-ldap
+
+          for SUB_PKG in core authentication build log permissions settings web; do
+            echo "::group::Installing RFL.${SUB_PKG}"
+            cd ${GITHUB_WORKSPACE}/src/${SUB_PKG}
+            cp ${GITHUB_WORKSPACE}/src/build/rfl/build/scripts/setup setup.py
+            python3 setup.py install --root /
+            echo "::endgroup::"
+          done
+      - name: Install application
+        if: ${{ matrix.python-version != '3.6' }}
+        run: |
+          pip install src/core src/authentication src/build src/log src/permissions src/settings src/web
+
+      # The cached_property decorator is integrated in Python 3.8+. For older versions,
+      # install cached_property external library.
+      - if: ${{ matrix.python-version == '3.6' || matrix.python-version == '3.7' }}
+        run: pip install cached_property
+
+      - name: Run tests
+        run: pytest --import-mode=importlib
