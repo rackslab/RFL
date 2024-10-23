@@ -149,14 +149,14 @@ class SettingsParameterDefinition:
             return urllib.parse.urlparse(default)
         elif _type == "ip":
             try:
-                ipaddress.ip_address(default)
+                return ipaddress.ip_address(default)
             except ValueError as err:
                 raise SettingsDefinitionError(
                     f"Invalid default ip address value for parameter {str(self)}"
                 ) from err
         elif _type == "network":
             try:
-                ipaddress.ip_network(default)
+                return ipaddress.ip_network(default)
             except ValueError as err:
                 raise SettingsDefinitionError(
                     f"Invalid default ip network value for parameter {str(self)}"
