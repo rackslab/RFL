@@ -140,6 +140,40 @@ class TestSettingsDefinition(unittest.TestCase):
         ):
             SettingsDefinition(loader)
 
+    def test_default_valid_type_int(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_int"]["default"] = 10
+        definition = SettingsDefinition(loader)
+        self.assertEqual(
+            definition.section("section2").parameter("param_int").default, 10
+        )
+
+    def test_default_valid_type_bool(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_bool"]["default"] = True
+        definition = SettingsDefinition(loader)
+        self.assertEqual(
+            definition.section("section2").parameter("param_bool").default, True
+        )
+
+    def test_default_valid_type_ip(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_ip"]["default"] = "192.168.0.10"
+        definition = SettingsDefinition(loader)
+        self.assertEqual(
+            definition.section("section2").parameter("param_ip").default,
+            ipaddress.ip_address("192.168.0.10"),
+        )
+
+    def test_default_valid_type_network(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_network"]["default"] = "192.168.0.0/24"
+        definition = SettingsDefinition(loader)
+        self.assertEqual(
+            definition.section("section2").parameter("param_network").default,
+            ipaddress.ip_network("192.168.0.0/24"),
+        )
+
     def test_default_invalid_type_int(self):
         loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
         loader.content["section2"]["param_int"]["default"] = "fail"
