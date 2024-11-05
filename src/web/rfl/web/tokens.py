@@ -42,6 +42,7 @@ def _get_token_user(request):
     try:
         request.user = current_app.jwt.decode(request.token)
     except JWTDecodeError as err:
+        logger.warning("JWT decode error: %s", err)
         abort(401, str(err))
 
 

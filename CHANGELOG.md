@@ -8,8 +8,11 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+- web: Add warning log entry in case of JWT decode error.
+
 ### Fixed
-- settings: valid ip and network default values were wrongly reported having the
+- settings: Valid ip and network default values were wrongly reported having the
   wrong type.
 
 ## [1.1.0] - 2024-10-18
