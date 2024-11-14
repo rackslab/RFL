@@ -190,6 +190,32 @@ class TestRBACPolicyManager(unittest.TestCase):
         manager = RBACPolicyManager(loader)
         self.assertEqual(manager.allow_anonymous, False)
 
+    def test_manager_roles_actions(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
+        manager = RBACPolicyManager(loader)
+        self.assertEqual(
+            manager.roles_actions(AuthenticatedUser(login="FAKE", groups=["users"])),
+            (
+                {"anonymous", "user", "base"},
+                {"launch-tasks", "view-users", "view-tasks"},
+            ),
+        )
+        self.assertEqual(
+            manager.roles_actions(AuthenticatedUser(login="lisa", groups=["FAKE"])),
+            (
+                {"operator", "base", "anonymous", "user"},
+                {"view-tasks", "launch-tasks", "view-users", "edit-tasks"},
+            ),
+        )
+        self.assertEqual(
+            manager.roles_actions(AuthenticatedUser(login="FAKE", groups=["admins"])),
+            (
+                {"base", "administrator", "anonymous"},
+                {"edit-tasks", "add-users", "view-tasks", "launch-tasks", "view-users"},
+            ),
+        )
+
     def test_manager_allowed_anonymous(self):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
         loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
