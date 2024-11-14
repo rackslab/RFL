@@ -231,11 +231,12 @@ class TestRBACPolicyManager(unittest.TestCase):
         # Disable warning logging printed when user action is denied.
         logging.disable(logging.CRITICAL)
 
-        # Members of users group must have access to base and user roles actions but not
-        # to operator role actions
+        # Members of users group must have access to base, user and anonymous roles
+        # actions but not to operator role actions
         user = AuthenticatedUser(login="FAKE", groups=["users"])
         self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
         self.assertEqual(manager.allowed_user_action(user, "launch-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "view-tasks"), True)
         self.assertEqual(manager.allowed_user_action(user, "edit-tasks"), False)
 
         # Mike (user) must have access to user role actions but not to operator role
@@ -255,10 +256,11 @@ class TestRBACPolicyManager(unittest.TestCase):
         self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
         self.assertEqual(manager.allowed_user_action(user, "fail"), False)
 
-        # Lisa (user + operator) must have access to base, user and operator roles
-        # actions but not to admin role actions.
+        # Lisa (user + operator) must have access to base, user, operator and anonymous
+        # roles actions but not to admin role actions.
         user = AuthenticatedUser(login="lisa", groups=["users"])
         self.assertEqual(manager.allowed_user_action(user, "edit-tasks"), True)
         self.assertEqual(manager.allowed_user_action(user, "view-users"), True)
         self.assertEqual(manager.allowed_user_action(user, "launch-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "view-tasks"), True)
         self.assertEqual(manager.allowed_user_action(user, "add-users"), False)
