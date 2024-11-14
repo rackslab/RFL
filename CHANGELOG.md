@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [unreleased]
 
+### Changed
+- permissions: Do not attribute anonymous role by default anymore to
+  authenticated users.
+
 ### Fixed
 - core: `AttributeError` with `asyncio.tasks._gather` on Python 3.6 (#23).
 

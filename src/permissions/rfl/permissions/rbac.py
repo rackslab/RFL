@@ -193,8 +193,11 @@ class RBACPolicyManager:
         """Return the set of roles associated to a given user name."""
         roles = set()
         for role in self.loader.roles:
-            # anonymous role or role with ALL authenticated members
-            if role.members is None or ALL_MEMBER in role.members:
+            # Skip anonymous role w/o members
+            if role.name == ANONYMOUS_ROLE:
+                continue
+            # Include role with ALL authenticated members
+            if ALL_MEMBER in role.members:
                 roles.add(role)
             else:
                 for member in role.members:
