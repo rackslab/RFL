@@ -61,6 +61,15 @@ section2:
         type: ip
     param_network:
         type: network
+    param_list_uri:
+        type: list
+        content: uri
+    param_list_ip:
+        type: list
+        content: ip
+    param_list_network:
+        type: list
+        content: network
 """
 
 VALID_SITE = """
@@ -77,6 +86,15 @@ param_required = required_value
 param_password = SECR3T
 param_ip = 127.0.0.1
 param_network = 127.0.0.0/24
+param_list_uri =
+  http://localhost
+  https://remote.host/path/to/resource
+param_list_ip =
+  192.168.1.24
+  10.0.0.3
+param_list_network =
+  192.168.3.0/24
+  10.0.0.0/17
 """
 
 
@@ -501,14 +519,16 @@ class TestRuntimeSettings(unittest.TestCase):
             "[section2]\n"
             "  param_int: 10 (definition:yaml:raw)\n"
             "  param_path: /site/path/to/file (site:ini:raw)\n"
-            "  param_uri: ParseResult(scheme='https', netloc='localhost:5900', "
-            "path='/resources', params='', query='', fragment='') "
-            "(definition:yaml:raw)\n"
-            "  param_float: None (definition:yaml:raw)\n"
+            "  param_uri: https://localhost:5900/resources (definition:yaml:raw)\n"
+            "  param_float: ∅ (definition:yaml:raw)\n"
             "  param_bool: True (definition:yaml:raw)\n"
-            "  param_list: ['value3', 'value5'] (site:ini:raw)\n"
+            "  param_list: value3, value5 (site:ini:raw)\n"
             "  param_required: required_value (site:ini:raw)\n"
             "  param_password: •••••• (site:ini:raw)\n"
             "  param_ip: 127.0.0.1 (site:ini:raw)\n"
-            "  param_network: 127.0.0.0/24 (site:ini:raw)\n",
+            "  param_network: 127.0.0.0/24 (site:ini:raw)\n"
+            "  param_list_uri: http://localhost, https://remote.host/path/to/resource "
+            "(site:ini:raw)\n"
+            "  param_list_ip: 192.168.1.24, 10.0.0.3 (site:ini:raw)\n"
+            "  param_list_network: 192.168.3.0/24, 10.0.0.0/17 (site:ini:raw)\n",
         )
