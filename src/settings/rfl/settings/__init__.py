@@ -163,6 +163,17 @@ class RuntimeSettings:
                 f"not one of possible choices {parameter.choices}"
             )
 
+    def _dump_typed_value(self, value, _type) -> str:
+        """Dump a specific value according to its type."""
+        # Hide password
+        if _type == "password":
+            value = "•" * len(value)
+        elif _type == "uri":
+            value = value.geturl()
+        elif _type in ["ip", "network"]:
+            return str(value)
+        return value
+
     def dump(self):
         """Print configuration parameters grouped by section, with the origin of their
         value (definition or site) on standard output."""
@@ -171,21 +182,35 @@ class RuntimeSettings:
             section = getattr(self, section_name)
             for parameter_name, origin in section._origin.items():
                 value = getattr(section, parameter_name)
-                # Hide passwords
-                if value is not None and (
-                    self._definition.section(section_name)
-                    .parameter(parameter_name)
-                    ._type
-                    == "password"
-                ):
-                    value = "•" * len(value)
-                if value is not None and (
-                    self._definition.section(section_name)
-                    .parameter(parameter_name)
-                    ._type
-                    == "password"
-                ):
-                    value = "•" * len(value)
+                # Special character for none value.
+                if value is None:
+                    value = "∅"
+                else:
+                    # If list, print items comma-separated
+                    if (
+                        self._definition.section(section_name)
+                        .parameter(parameter_name)
+                        ._type
+                        == "list"
+                    ):
+                        value = ", ".join(
+                            [
+                                self._dump_typed_value(
+                                    item,
+                                    self._definition.section(section_name)
+                                    .parameter(parameter_name)
+                                    .content,
+                                )
+                                for item in value
+                            ]
+                        )
+                    else:
+                        value = self._dump_typed_value(
+                            value,
+                            self._definition.section(section_name)
+                            .parameter(parameter_name)
+                            ._type,
+                        )
                 print(
                     f"  {parameter_name}: {value} " f"({origin})",
                 )

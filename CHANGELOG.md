@@ -8,12 +8,19 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+- settings: print list parameters as comma-separated list of values for more
+  readability (#27).
+
 ### Changed
 - permissions: Do not attribute anonymous role by default anymore to
   authenticated users.
 
 ### Fixed
 - core: `AttributeError` with `asyncio.tasks._gather` on Python 3.6 (#23).
+- settings:
+  - Print URL as readable string in dumps (#25).
+  - Print IP/network addresses as readable strings in dumps (#26).
 
 ## [1.1.1] - 2024-11-05
 
