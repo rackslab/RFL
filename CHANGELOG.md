@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [1.2.0] - 2024-11-26
 
-### Added
+### Added
 - settings: print list parameters as comma-separated list of values for more
   readability (#27).
 
