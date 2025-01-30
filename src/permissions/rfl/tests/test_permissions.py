@@ -7,7 +7,7 @@
 import unittest
 import logging
 
-from rfl.authentication.user import AuthenticatedUser
+from rfl.authentication.user import AuthenticatedUser, AnonymousUser
 from rfl.permissions.rbac import (
     RBACPolicyRole,
     RBACPolicyDefinitionYAMLLoader,
@@ -178,7 +178,7 @@ class TestRBACPolicyManager(unittest.TestCase):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
         loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
         manager = RBACPolicyManager(loader)
-        self.assertEqual(manager.allow_anonymous, True)
+        self.assertTrue(manager.allow_anonymous)
 
     def test_manager_wo_anonymous(self):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
@@ -188,7 +188,7 @@ class TestRBACPolicyManager(unittest.TestCase):
         loader.content.remove_option("roles", "anonymous")
         loader._load()
         manager = RBACPolicyManager(loader)
-        self.assertEqual(manager.allow_anonymous, False)
+        self.assertFalse(manager.allow_anonymous)
 
     def test_manager_roles_actions(self):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
@@ -216,13 +216,61 @@ class TestRBACPolicyManager(unittest.TestCase):
             ),
         )
 
-    def test_manager_allowed_anonymous(self):
+    def test_manager_roles_actions_unknown_user(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        loader = RBACPolicyRolesIniLoader(
+            definition=definition, raw=VALID_ROLES, preload=False
+        )
+        manager = RBACPolicyManager(loader)
+        # Remove the base role for all authenticated users so unknown user could not be
+        # associated to any role defined in policy.
+        loader.content.remove_option("roles", "base")
+        loader._load()
+        manager = RBACPolicyManager(loader)
+        self.assertEqual(
+            manager.roles_actions(AuthenticatedUser(login="FAKE", groups=["unknown"])),
+            (set(), set()),
+        )
+
+    def test_manager_roles_actions_anonymous(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
+        manager = RBACPolicyManager(loader)
+        self.assertEqual(
+            manager.roles_actions(AnonymousUser()),
+            ({"anonymous"}, {"view-tasks"}),
+        )
+
+    def test_manager_roles_actions_anonymous_disabled(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        loader = RBACPolicyRolesIniLoader(
+            definition=definition, raw=VALID_ROLES, preload=False
+        )
+        loader.content.remove_option("roles", "anonymous")
+        loader._load()
+        manager = RBACPolicyManager(loader)
+        self.assertFalse(manager.allow_anonymous)
+        self.assertEqual(
+            manager.roles_actions(AnonymousUser()),
+            (set(), set()),
+        )
+
+    def test_manager_allowed_anonymous_action(self):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
         loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
         manager = RBACPolicyManager(loader)
         self.assertEqual(manager.allowed_anonymous_action("view-tasks"), True)
         self.assertEqual(manager.allowed_anonymous_action("view-users"), False)
         self.assertEqual(manager.allowed_anonymous_action("launch-tasks"), False)
+
+    def test_manager_allowed_anonymous_user_action(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
+        manager = RBACPolicyManager(loader)
+        user = AnonymousUser()
+        self.assertEqual(manager.allowed_user_action(user, "view-tasks"), True)
+        self.assertEqual(manager.allowed_user_action(user, "view-users"), False)
+        self.assertEqual(manager.allowed_user_action(user, "launch-tasks"), False)
 
     def test_manager_allowed_user_action(self):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
