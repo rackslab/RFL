@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Added
+- auth: Introduce `AnonymousUser` class as a child of `AuthenticatedUser` with
+  `is_anonynous()` on `AuthenticatedUser` class to tell if user is anonymous.
+
 ## [1.2.0] - 2024-11-26
 
 ### Added

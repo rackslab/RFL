@@ -17,3 +17,16 @@ class AuthenticatedUser:
 
     def __str__(self) -> str:
         return f"{self.login} ({self.fullname or '∅'}) [{', '.join(self.groups)}]"
+
+    def is_anonymous(self):
+        """Return True if user has the anonymous login."""
+        return self.login == AnonymousUser.LOGIN
+
+
+class AnonymousUser(AuthenticatedUser):
+
+    LOGIN = "anonymous"
+    FULLNAME = "anonymous"
+
+    def __init__(self):
+        return super().__init__(AnonymousUser.LOGIN, AnonymousUser.FULLNAME)
