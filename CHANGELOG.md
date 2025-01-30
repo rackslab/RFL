@@ -12,6 +12,10 @@ and this project adheres to
 - auth: Introduce `AnonymousUser` class as a child of `AuthenticatedUser` with
   `is_anonynous()` on `AuthenticatedUser` class to tell if user is anonymous.
 
+### Fixed
+- perms: Fix retrieval of anonymous user permissions as defined in authorization
+  policy (#29→#31).
+
 ## [1.2.0] - 2024-11-26
 
 ### Added

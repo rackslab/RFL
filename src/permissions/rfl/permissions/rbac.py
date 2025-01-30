@@ -192,6 +192,7 @@ class RBACPolicyManager:
     def _user_roles(self, user: AuthenticatedUser) -> Set[str]:
         """Return the set of roles associated to a given user name."""
         roles = set()
+        assert not user.is_anonymous()
         for role in self.loader.roles:
             # Skip anonymous role w/o members
             if role.name == ANONYMOUS_ROLE:
@@ -208,7 +209,15 @@ class RBACPolicyManager:
         logger.debug("Found the following roles for user %s: %s", user, roles)
         return roles
 
-    def roles_actions(self, user: AuthenticatedUser) -> Tuple[Set[str], Set[str]]:
+    def _anonymous_actions(self) -> Tuple[Set[str], Set[str]]:
+        """Return tuple with set of role names and set of allowed actions for
+        anonymous user."""
+        for role in self.loader.roles:
+            if role.name == ANONYMOUS_ROLE:
+                return ({role.name}, role.actions)
+        return (set(), set())
+
+    def _user_actions(self, user: AuthenticatedUser) -> Tuple[Set[str], Set[str]]:
         """Return tuple with set of role names and set of allowed actions for a
         particular user and list of groups membership."""
         roles = self._user_roles(user)
@@ -216,6 +225,13 @@ class RBACPolicyManager:
         for role in roles:
             actions.update(role.actions)
         return (set([role.name for role in roles]), actions)
+
+    def roles_actions(self, user: AuthenticatedUser) -> Tuple[Set[str], Set[str]]:
+        """Return tuple with set of role names and set of allowed actions for a
+        given user."""
+        if user.is_anonymous():
+            return self._anonymous_actions()
+        return self._user_actions(user)
 
     def allowed_anonymous_action(self, action: str) -> bool:
         """Return True if the given action is allowed for anonymous role, False
@@ -228,6 +244,8 @@ class RBACPolicyManager:
     def allowed_user_action(self, user: AuthenticatedUser, action: str) -> bool:
         """Return True if the given action is allowed for the given user, False
         otherwise."""
+        if user.is_anonymous():
+            return self.allowed_anonymous_action(action)
         for role in self._user_roles(user):
             if action in role.actions:
                 logger.debug(
