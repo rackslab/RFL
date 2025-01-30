@@ -10,7 +10,7 @@ import tempfile
 import os
 import unittest
 
-from rfl.authentication.user import AuthenticatedUser
+from rfl.authentication.user import AuthenticatedUser, AnonymousUser
 from rfl.authentication.jwt import jwt_gen_key, JWTPrivateKeyFileLoader, JWTManager
 from rfl.authentication.errors import (
     JWTPrivateKeyGeneratorError,
@@ -162,6 +162,12 @@ class TestJWTManager(unittest.TestCase):
         manager = JWTManager("test", "HS256", loader)
         token = manager.generate(AuthenticatedUser(login="user", groups=["group"]), 1)
         self.assertEqual(manager.decode(token).login, "user")
+
+    def test_generate_decode_anonymous(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTManager("test", "HS256", loader)
+        token = manager.generate(AnonymousUser(), 1)
+        self.assertEqual(manager.decode(token).login, AnonymousUser.LOGIN)
 
     def test_invalid_algo(self):
         loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
