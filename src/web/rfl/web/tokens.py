@@ -57,7 +57,7 @@ def check_jwt(view):
             logger.warning("Unauthorized access without bearer token")
             abort(
                 403,
-                f"Not allowed to access endpoint without bearer token",
+                "Not allowed to access endpoint without bearer token",
             )
         return view(*args, **kwargs)
 
