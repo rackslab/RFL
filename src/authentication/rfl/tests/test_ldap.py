@@ -106,13 +106,184 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ):
             self.authentifier.connection()
 
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_disabled(self, mock_ldap_initialize):
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+
+        self.assertEqual(
+            self.authentifier._lookup_user_dn("john"),
+            f"{self.authentifier.user_name_attribute}=john,"
+            f"{self.authentifier.user_base}",
+        )
+        mock_ldap_object.simple_bind_s.assert_not_called()
+        mock_ldap_object.search_s.assert_not_called()
+        mock_ldap_object.unbind_s.assert_not_called()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_enabled(self, mock_ldap_initialize):
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.search_s.return_value = [
+            (
+                f"uid=john,ou=admins,{self.authentifier.user_base}",
+                {"cn": [b"John Doe"]},
+            )
+        ]
+
+        self.assertEqual(
+            self.authentifier._lookup_user_dn("john"),
+            f"uid=john,ou=admins,{self.authentifier.user_base}",
+        )
+        mock_ldap_object.simple_bind_s.assert_not_called()
+        mock_ldap_object.search_s.assert_called_once()
+        mock_ldap_object.unbind_s.assert_called_once()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_enabled_bind_dn(self, mock_ldap_initialize):
+        # define bind dn/password
+        self.authentifier.bind_dn = "uid=read,ou=apps,dc=corp,dc=org"
+        self.authentifier.bind_password = "uid=read,ou=apps,dc=corp,dc=org"
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.search_s.return_value = [
+            (
+                f"uid=john,ou=admins,{self.authentifier.user_base}",
+                {"cn": [b"John Doe"]},
+            )
+        ]
+
+        self.assertEqual(
+            self.authentifier._lookup_user_dn("john"),
+            f"uid=john,ou=admins,{self.authentifier.user_base}",
+        )
+        mock_ldap_object.simple_bind_s.assert_called_once_with(
+            self.authentifier.bind_dn, self.authentifier.bind_password
+        )
+        mock_ldap_object.search_s.assert_called_once()
+        mock_ldap_object.unbind_s.assert_called_once()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_enabled_bind_dn_missing_password(
+        self, mock_ldap_initialize
+    ):
+        # define bind_dn without password
+        self.authentifier.bind_dn = "uid=read,ou=apps,dc=corp,dc=org"
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+
+        # Check exception is raised when bind_dn is set without bind_password
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            r"^Password to authenticate with bind DN uid=read,ou=apps,dc=corp,dc=org "
+            r"is required$",
+        ):
+            self.authentifier._lookup_user_dn("john")
+        mock_ldap_object.search_s.assert_not_called()
+        mock_ldap_object.unbind_s.assert_not_called()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_enabled_bind_dn_invalid_credentials(
+        self, mock_ldap_initialize
+    ):
+        # define bind dn/password
+        self.authentifier.bind_dn = "uid=read,ou=apps,dc=corp,dc=org"
+        self.authentifier.bind_password = "uid=read,ou=apps,dc=corp,dc=org"
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.simple_bind_s.side_effect = ldap.INVALID_CREDENTIALS("fail")
+
+        # Check exception is raised with LDAP fails due to invalid credential
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            r"^Invalid bind DN or password$",
+        ):
+            self.authentifier._lookup_user_dn("john")
+        mock_ldap_object.search_s.assert_not_called()
+        mock_ldap_object.unbind_s.assert_not_called()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_ldap_errors(self, mock_ldap_initialize):
+        # define bind dn/password
+        self.authentifier.bind_dn = "uid=read,ou=apps,dc=corp,dc=org"
+        self.authentifier.bind_password = "uid=read,ou=apps,dc=corp,dc=org"
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.simple_bind_s.side_effect = ldap.SERVER_DOWN("fail")
+
+        # Check exception is raised due to LDAP server down
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            rf"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+        ):
+            self.authentifier._lookup_user_dn("john")
+        mock_ldap_object.search_s.assert_not_called()
+        mock_ldap_object.unbind_s.assert_not_called()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_enabled_not_found(self, mock_ldap_initialize):
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.search_s.return_value = []
+
+        # Check exception is raised due to no result found
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            r"^Unable to find user john in base ou=people,dc=corp,dc=org$",
+        ):
+            self.authentifier._lookup_user_dn("john")
+        mock_ldap_object.search_s.assert_called_once()
+        mock_ldap_object.unbind_s.assert_called_once()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_enabled_too_much_results(self, mock_ldap_initialize):
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.search_s.return_value = [
+            (
+                f"uid=john,ou=admins,{self.authentifier.user_base}",
+                {"cn": [b"John Doe"]},
+            ),
+            (
+                f"uid=alice,ou=admins,{self.authentifier.user_base}",
+                {"cn": [b"Alice Doe"]},
+            ),
+        ]
+        # Check exception is raised due to too many results found
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            r"^Too many users found \(2\) with username john in base "
+            r"ou=people,dc=corp,dc=org$",
+        ):
+            self.authentifier._lookup_user_dn("john")
+        mock_ldap_object.search_s.assert_called_once()
+        mock_ldap_object.unbind_s.assert_called_once()
+
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
     @patch.object(LDAPAuthentifier, "_get_user_info")
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch("rfl.authentication.ldap.ldap")
-    def test_login_ok(self, mock_ldap, mock_get_groups, mock_get_user_info):
+    def test_login_ok(
+        self, mock_ldap, mock_get_groups, mock_get_user_info, mock_lookup_user_dn
+    ):
         # setup mocks return values
         mock_get_groups.return_value = ["group1", "group2"]
         mock_get_user_info.return_value = ("John Doe", 42)
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
         mock_ldap_object = mock_ldap.initialize.return_value
 
         # call method
@@ -135,16 +306,18 @@ class TestLDAPAuthentifier(unittest.TestCase):
         self.assertEqual(user.fullname, "John Doe")
         self.assertEqual(user.groups, ["group1", "group2"])
 
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
     @patch.object(LDAPAuthentifier, "_get_user_info")
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch("rfl.authentication.ldap.ldap")
     def test_login_not_in_restricted_group(
-        self, mock_ldap, mock_get_groups, mock_get_user_info
+        self, mock_ldap, mock_get_groups, mock_get_user_info, mock_lookup_user_dn
     ):
         # setup mocks return values
         self.authentifier.restricted_groups = ["group3", "group4"]
         mock_get_groups.return_value = ["group1", "group2"]
         mock_get_user_info.return_value = ("John Doe", 42)
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
 
         # call method
         with self.assertRaisesRegex(
@@ -160,8 +333,10 @@ class TestLDAPAuthentifier(unittest.TestCase):
             self.authentifier.login("john", None)
             self.authentifier.login(None, "SECR3T")
 
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
     @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
-    def test_login_errors(self, mock_simple_bind_s):
+    def test_login_errors(self, mock_simple_bind_s, mock_lookup_user_dn):
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
         mock_simple_bind_s.side_effect = ldap.SERVER_DOWN("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
