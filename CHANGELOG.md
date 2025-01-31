@@ -9,8 +9,12 @@ and this project adheres to
 ## [unreleased]
 
 ### Added
-- auth: Introduce `AnonymousUser` class as a child of `AuthenticatedUser` with
-  `is_anonynous()` on `AuthenticatedUser` class to tell if user is anonymous.
+- auth:
+  - Introduce `AnonymousUser` class as a child of `AuthenticatedUser` with
+    `is_anonynous()` on `AuthenticatedUser` class to tell if user is anonymous.
+  - Add posibility to lookup user DN in the scope of user base subtree before
+    trying authentication instead of expecting the DN is the basic concatenation
+    of the user name attribute, the login and the user base (#30→#36).
 
 ### Changed
 - web: Change error description and log message when unauthorized to access

@@ -34,6 +34,7 @@ class LDAPAuthentifier:
         bind_dn: Optional[str] = None,
         bind_password: Optional[str] = None,
         restricted_groups: Optional[List[str]] = None,
+        lookup_user_dn: bool = False,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -54,6 +55,7 @@ class LDAPAuthentifier:
         self.bind_dn = bind_dn
         self.bind_password = bind_password
         self.restricted_groups = restricted_groups
+        self.lookup_user_dn = lookup_user_dn
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
@@ -218,18 +220,116 @@ class LDAPAuthentifier:
             and not any([group in self.restricted_groups for group in groups])
         )
 
+    def _bind(self, connection):
+        """Bind connection with provided dn/password. Binding is skipped if bind_dn
+        attribute is None. LDAPAuthentication is raised if either bind_password
+        attribute is None (while bind_dn is defined) or LDAP server returns invalid
+        credential error."""
+        if self.bind_dn is None:
+            return
+        logger.debug("Using DN %s to bind to LDAP directory", self.bind_dn)
+        try:
+            assert self.bind_password is not None
+        except AssertionError as err:
+            raise LDAPAuthenticationError(
+                f"Password to authenticate with bind DN {self.bind_dn} is required"
+            ) from err
+        try:
+            connection.simple_bind_s(self.bind_dn, self.bind_password)
+        except ldap.INVALID_CREDENTIALS as err:
+            raise LDAPAuthenticationError("Invalid bind DN or password") from err
+        except ldap.SERVER_DOWN as err:
+            raise LDAPAuthenticationError(
+                f"LDAP server {self.uri.geturl()} is unreachable"
+            ) from err
+
+    def _lookup_user_dn(self, user):
+        """Return the DN of the given user in user base subtree. If lookup_user_dn flag
+        is False, just concatenate of the user name attribute, the provided user name
+        and the user base. Else, bind to LDAP directory with bind_{dn,password} if
+        provided and search for the user DN in subtree scope. Check there is only one
+        matching result and return the DN. Raise LDAPAuthenticationError when user base
+        not found and when number of results is not one."""
+
+        # If lookup_user_dn flag is disabled, just return the concatenation of the user
+        # name attribute, the provided user name and the user base.
+        if not self.lookup_user_dn:
+            return f"{self.user_name_attribute}={user},{self.user_base}"
+
+        connection = self.connection()
+
+        # Bind with bind_{dn,password} if defined.
+        self._bind(connection)
+
+        search_filter = (
+            f"(&(objectClass={self.user_class})({self.user_name_attribute}={user}))"
+        )
+        try:
+            results = connection.search_s(
+                self.user_base,
+                ldap.SCOPE_SUBTREE,
+                search_filter,
+                [self.user_name_attribute],
+            )
+        except ldap.SERVER_DOWN as err:
+            raise LDAPAuthenticationError(
+                f"LDAP server {self.uri.geturl()} is unreachable"
+            ) from err
+        except ldap.NO_SUCH_OBJECT as err:
+            raise LDAPAuthenticationError(
+                f"Unable to find user base {self.user_base}"
+            ) from err
+        finally:
+            connection.unbind_s()
+        logger.debug(
+            "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
+            self.group_base,
+            search_filter,
+            str(results),
+        )
+        # Check at least one result has been found or raise error
+        if not len(results):
+            logger.warning(
+                "Unable to find user %s=%s in LDAP in base %s subtree",
+                self.user_name_attribute,
+                user,
+                self.user_base,
+            )
+            raise LDAPAuthenticationError(
+                f"Unable to find user {user} in base {self.user_base}"
+            )
+        # Check no more than one result has been found or raise error
+        if len(results) > 1:
+            logger.warning(
+                "Too many users found (%d) with %s=%s in LDAP in base %s subtree",
+                len(results),
+                self.user_name_attribute,
+                user,
+                self.user_base,
+            )
+            raise LDAPAuthenticationError(
+                f"Too many users found ({len(results)}) with username {user} in base "
+                f"{self.user_base}"
+            )
+        # Return DN of this unique result
+        return results[0][0]
+
     def login(self, user: str, password: str) -> AuthenticatedUser:
         """Verify provided user/password are valid and return the corresponding
         AuthenticatedUser. Raise LDAPAuthenticationError if restricted groups are set
         and the user in not member of any of these groups."""
         fullname = None
         groups = None
-        connection = self.connection()
         if user is None or password is None:
             raise LDAPAuthenticationError("Invalid authentication request")
+
+        # Lookup user DN in user base.
+        user_dn = self._lookup_user_dn(user)
+        logger.debug("DN user for authentication of user %s: %s", user, user_dn)
+
+        connection = self.connection()
         try:
-            # Try simple authentication with user/password on LDAP directory
-            user_dn = f"{self.user_name_attribute}={user},{self.user_base}"
+            # Try simple authentication with user DN and password on LDAP directory
             connection.simple_bind_s(user_dn, password)
             fullname, gid = self._get_user_info(connection, user_dn)
             groups = self._get_groups(connection, user, user_dn, gid)
@@ -308,18 +408,8 @@ class LDAPAuthentifier:
         result = []
         connection = self.connection()
 
-        if self.bind_dn is not None:
-            logger.debug("Using DN %s to bind to LDAP directory", self.bind_dn)
-            try:
-                assert self.bind_password is not None
-            except AssertionError as err:
-                raise LDAPAuthenticationError(
-                    f"Password to authenticate with bind DN {self.bind_dn} is required"
-                ) from err
-            try:
-                connection.simple_bind_s(self.bind_dn, self.bind_password)
-            except ldap.INVALID_CREDENTIALS as err:
-                raise LDAPAuthenticationError("Invalid bind DN or password") from err
+        # Bind with bind_{dn,password} if defined.
+        self._bind(connection)
 
         try:
             for user, user_dn in self._list_user_dn(connection):
