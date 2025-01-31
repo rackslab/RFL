@@ -20,6 +20,7 @@ and this project adheres to
 ### Fixed
 - perms: Fix retrieval of anonymous user permissions as defined in authorization
   policy (#29→#31).
+- web: Add missing dependency on Flask package.
 
 ## [1.2.0] - 2024-11-26
 

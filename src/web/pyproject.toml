@@ -13,6 +13,7 @@ authors = [
     {name = "Rémi Palancher", email = "remi@rackslab.io"},
 ]
 dependencies = [
+    "Flask",
     "RFL.permissions",
     "RFL.authentication"
 ]
