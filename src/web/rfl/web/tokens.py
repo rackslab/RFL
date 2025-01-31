@@ -66,21 +66,19 @@ def rbac_action(action):
         @wraps(view)
         def wrapped(*args, **kwargs):
             _get_token_user(request)
-            # verify unauthorized anonymous access
-            if request.user is None and (
-                not current_app.policy.allow_anonymous
-                or not current_app.policy.allowed_anonymous_action(action)
-            ):
-                logger.warning("Unauthorized anonymous access to action %s", action)
-                abort(
-                    403,
-                    f"Anonymous role is not allowed to perform action {action}",
-                )
+            # verify anonymous access
+            if request.user is None or request.user.is_anonymous():
+                if (
+                    not current_app.policy.allow_anonymous
+                    or not current_app.policy.allowed_anonymous_action(action)
+                ):
+                    logger.warning("Unauthorized anonymous access to action %s", action)
+                    abort(
+                        403,
+                        f"Anonymous role is not allowed to perform action {action}",
+                    )
             # verify real user access
-            elif (
-                request.user is not None
-                and not current_app.policy.allowed_user_action(request.user, action)
-            ):
+            elif not current_app.policy.allowed_user_action(request.user, action):
                 logger.warning(
                     "Unauthorized access from user %s to action %s",
                     request.user,

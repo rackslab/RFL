@@ -12,6 +12,11 @@ and this project adheres to
 - auth: Introduce `AnonymousUser` class as a child of `AuthenticatedUser` with
   `is_anonynous()` on `AuthenticatedUser` class to tell if user is anonymous.
 
+### Changed
+- web: Change error description and log message when unauthorized to access
+  endpoint with `@rbac_action` decorator with anonymous token in order to match
+  access without token.
+
 ### Fixed
 - perms: Fix retrieval of anonymous user permissions as defined in authorization
   policy (#29→#31).
