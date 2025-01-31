@@ -48,11 +48,17 @@ def _get_token_user(request):
 
 def check_jwt(view):
     """Decorator for Flask views functions check for valid authentification JWT
-    token and permission in policy."""
+    token."""
 
     @wraps(view)
     def wrapped(*args, **kwargs):
         _get_token_user(request)
+        if request.user is None and not current_app.policy.allow_anonymous:
+            logger.warning("Unauthorized access without bearer token")
+            abort(
+                403,
+                f"Not allowed to access endpoint without bearer token",
+            )
         return view(*args, **kwargs)
 
     return wrapped
