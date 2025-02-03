@@ -83,9 +83,8 @@ class TestingFlaskApp(flask.Flask, RFLTokenizedRBACWebApp):
         )
 
         if not anonymous_enabled:
-            for role in self.policy.loader.roles.copy():
-                if role.name == ANONYMOUS_ROLE:
-                    self.policy.loader.roles.remove(role)
+            self.policy.disable_anonymous()
+
         key.close()
         policy.close()
         roles.close()
