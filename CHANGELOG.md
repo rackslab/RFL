@@ -15,6 +15,8 @@ and this project adheres to
   - Add posibility to lookup user DN in the scope of user base subtree before
     trying authentication instead of expecting the DN is the basic concatenation
     of the user name attribute, the login and the user base (#30→#36).
+- perms: Add `RBACPolicyManager.disable_anonymous()` as a mean to disable
+  anonymous role even if defined in loaded authorization policy (#35→#39)
 
 ### Changed
 - web: Change error description and log message when unauthorized to access

@@ -181,13 +181,19 @@ class RBACPolicyManager:
     def __init__(self, loader: RBACPolicyRolesLoader):
         self.loader = loader
 
-    @cached_property
+    @property
     def allow_anonymous(self) -> bool:
         """Return True if the anonymous role is declared in policy, False otherwise."""
         for role in self.loader.roles:
             if role.name == ANONYMOUS_ROLE:
                 return True
         return False
+
+    def disable_anonymous(self) -> None:
+        """Ensure anonymous role is disabled, even if defined in loaded policy."""
+        for role in self.loader.roles.copy():
+            if role.name == ANONYMOUS_ROLE:
+                self.loader.roles.remove(role)
 
     def _user_roles(self, user: AuthenticatedUser) -> Set[str]:
         """Return the set of roles associated to a given user name."""
