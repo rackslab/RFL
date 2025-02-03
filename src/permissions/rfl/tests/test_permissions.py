@@ -180,7 +180,15 @@ class TestRBACPolicyManager(unittest.TestCase):
         manager = RBACPolicyManager(loader)
         self.assertTrue(manager.allow_anonymous)
 
-    def test_manager_wo_anonymous(self):
+    def test_manager_disable_anonymous(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
+        manager = RBACPolicyManager(loader)
+        self.assertTrue(manager.allow_anonymous)
+        manager.disable_anonymous()
+        self.assertFalse(manager.allow_anonymous)
+
+    def test_manager_load_wo_anonymous(self):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
         loader = RBACPolicyRolesIniLoader(
             definition=definition, raw=VALID_ROLES, preload=False
