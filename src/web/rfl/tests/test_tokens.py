@@ -175,24 +175,28 @@ class TestRFLTokenizedRBACWebApp(unittest.TestCase):
         self.assertEqual(response.json, "test no check")
 
         response = self.client.get("/check-jwt")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, "test check jwt")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json, "Not allowed to access endpoint without bearer token"
+        )
 
         response = self.client.get("/view-tasks")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, "test view tasks")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.json, "Not allowed to access endpoint without bearer token"
+        )
 
         response = self.client.get("/launch-tasks")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json,
-            "Anonymous role is not allowed to perform action launch-tasks",
+            "Not allowed to access endpoint without bearer token",
         )
 
         response = self.client.get("/edit-tasks")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
-            response.json, "Anonymous role is not allowed to perform action edit-tasks"
+            response.json, "Not allowed to access endpoint without bearer token"
         )
 
     def test_no_token_anonymous_disabled(self):
@@ -212,20 +216,20 @@ class TestRFLTokenizedRBACWebApp(unittest.TestCase):
         response = self.client.get("/view-tasks")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
-            response.json, "Anonymous role is not allowed to perform action view-tasks"
+            response.json, "Not allowed to access endpoint without bearer token"
         )
 
         response = self.client.get("/launch-tasks")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json,
-            "Anonymous role is not allowed to perform action launch-tasks",
+            "Not allowed to access endpoint without bearer token",
         )
 
         response = self.client.get("/edit-tasks")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
-            response.json, "Anonymous role is not allowed to perform action edit-tasks"
+            response.json, "Not allowed to access endpoint without bearer token"
         )
 
     def test_anonymous_token(self):
