@@ -53,7 +53,7 @@ def check_jwt(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         _get_token_user(request)
-        if request.user is None and not current_app.policy.allow_anonymous:
+        if request.user is None:
             logger.warning("Unauthorized access without bearer token")
             abort(
                 403,
@@ -72,17 +72,22 @@ def rbac_action(action):
         @wraps(view)
         def wrapped(*args, **kwargs):
             _get_token_user(request)
+            if request.user is None:
+                logger.warning("Unauthorized access without bearer token")
+                abort(
+                    403,
+                    "Not allowed to access endpoint without bearer token",
+                )
             # verify anonymous access
-            if request.user is None or request.user.is_anonymous():
-                if (
-                    not current_app.policy.allow_anonymous
-                    or not current_app.policy.allowed_anonymous_action(action)
-                ):
-                    logger.warning("Unauthorized anonymous access to action %s", action)
-                    abort(
-                        403,
-                        f"Anonymous role is not allowed to perform action {action}",
-                    )
+            elif request.user.is_anonymous() and (
+                not current_app.policy.allow_anonymous
+                or not current_app.policy.allowed_anonymous_action(action)
+            ):
+                logger.warning("Unauthorized anonymous access to action %s", action)
+                abort(
+                    403,
+                    f"Anonymous role is not allowed to perform action {action}",
+                )
             # verify real user access
             elif not current_app.policy.allowed_user_action(request.user, action):
                 logger.warning(

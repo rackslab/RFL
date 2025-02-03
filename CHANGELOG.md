@@ -25,8 +25,8 @@ and this project adheres to
 - perms: Fix retrieval of anonymous user permissions as defined in authorization
   policy (#29→#31).
 - web:
-  - Deny access without token with `@check_jwt` decorator when anonymous role is
-    disabled (#33→#34).
+  - Deny access without bearer token in `@check_jwt` and `@rbac_action`
+    decorators (#33,#37→#34,#38).
   - Add missing dependency on Flask package.
 
 ## [1.2.0] - 2024-11-26
