@@ -6,15 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "RFL"
 version = "1.3.0"
 description = "Rackslab Foundation Library"
+requires-python = ">=3.6"
 
-[tool.black]
-target-version = ['py36']
-color = 1
-
-[tool.ruff]
+[tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F"]
-target-version = "py37"
 
 [tool.tox]
 legacy_tox_ini = """
