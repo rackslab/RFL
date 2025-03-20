@@ -24,7 +24,6 @@ class AuthenticatedUser:
 
 
 class AnonymousUser(AuthenticatedUser):
-
     LOGIN = "anonymous"
     FULLNAME = "anonymous"
 

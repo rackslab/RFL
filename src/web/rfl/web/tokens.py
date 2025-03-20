@@ -97,8 +97,7 @@ def rbac_action(action):
                 )
                 abort(
                     403,
-                    f"user {request.user} is not allowed to perform action "
-                    f"{action}",
+                    f"user {request.user} is not allowed to perform action {action}",
                 )
             return view(*args, **kwargs)
 
