@@ -1,3 +1,3 @@
 # RFL: build package
 
-Utilities to help backport builds of Python projects. 
+Utilities to help backport builds of Python projects.
