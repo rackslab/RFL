@@ -14,7 +14,6 @@ import werkzeug
 
 from rfl.web.tokens import RFLTokenizedRBACWebApp, check_jwt, rbac_action
 from rfl.authentication.user import AuthenticatedUser, AnonymousUser
-from rfl.permissions.rbac import ANONYMOUS_ROLE
 
 VALID_DEFINITION = """
 actions:
