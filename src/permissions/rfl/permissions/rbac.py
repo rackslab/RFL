@@ -9,18 +9,6 @@ import logging
 from pathlib import Path
 from typing import Set, Tuple
 
-try:
-    from functools import cached_property
-except ImportError:
-    # For Python 3.[6-7] compatibility. The dependency to cached_property
-    # external library is not declared in setup.py, it is added explicitely in
-    # packages codes only for distributions stuck with these old versions of
-    # Python.
-    #
-    # This try/except block can be removed when support of Python < 3.8 is
-    # dropped in Fatbuildr.
-    from cached_property import cached_property
-
 from rfl.authentication.user import AuthenticatedUser
 import yaml
 
