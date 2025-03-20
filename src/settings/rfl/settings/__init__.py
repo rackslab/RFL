@@ -212,7 +212,7 @@ class RuntimeSettings:
                             ._type,
                         )
                 print(
-                    f"  {parameter_name}: {value} " f"({origin})",
+                    f"  {parameter_name}: {value} ({origin})",
                 )
 
     def override_ini(self, path: Path) -> None:

@@ -144,7 +144,6 @@ def endpoint_edit_tasks():
 
 
 class TestRFLTokenizedRBACWebApp(unittest.TestCase):
-
     def setupClient(self, use_token=True, anonymous_token=False, user_admin=False):
         # Get token valid to get user role with all permissions as defined in
         # default policy.
