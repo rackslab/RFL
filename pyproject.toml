@@ -30,11 +30,4 @@ commands_pre =
 # properly.
 commands =
   pytest --import-mode=importlib {posargs}
-
-# RFL depends on cached_property backport package on python < 3.8.
-
-[testenv:py37]
-deps =
-  {[testenv]deps}
-  cached_property
 """
