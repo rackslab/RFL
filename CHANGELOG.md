@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Fixed
+
+- auth: Catch `ldap.OPERATIONS_ERROR` on LDAP users list and user DN lookup
+  searches (#40).
+
 ## [1.3.0] - 2025-02-03
 
 ### Added

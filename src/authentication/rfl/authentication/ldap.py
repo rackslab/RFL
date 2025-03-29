@@ -279,6 +279,10 @@ class LDAPAuthentifier:
             raise LDAPAuthenticationError(
                 f"Unable to find user base {self.user_base}"
             ) from err
+        except ldap.OPERATIONS_ERROR as err:
+            raise LDAPAuthenticationError(
+                f"Operations error on user DN lookup: {err}"
+            ) from err
         finally:
             connection.unbind_s()
         logger.debug(
@@ -364,6 +368,10 @@ class LDAPAuthentifier:
         except ldap.NO_SUCH_OBJECT as err:
             raise LDAPAuthenticationError(
                 f"Unable to find user base {self.user_base}"
+            ) from err
+        except ldap.OPERATIONS_ERROR as err:
+            raise LDAPAuthenticationError(
+                f"Operations error on users search: {err}"
             ) from err
         logger.debug(
             "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
