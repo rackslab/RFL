@@ -211,7 +211,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_ldap_object.unbind_s.assert_not_called()
 
     @patch.object(ldap, "initialize")
-    def test_lookup_user_ldap_errors(self, mock_ldap_initialize):
+    def test_lookup_user_ldap_server_down_error(self, mock_ldap_initialize):
         # define bind dn/password
         self.authentifier.bind_dn = "uid=read,ou=apps,dc=corp,dc=org"
         self.authentifier.bind_password = "uid=read,ou=apps,dc=corp,dc=org"
@@ -229,6 +229,26 @@ class TestLDAPAuthentifier(unittest.TestCase):
             self.authentifier._lookup_user_dn("john")
         mock_ldap_object.search_s.assert_not_called()
         mock_ldap_object.unbind_s.assert_not_called()
+
+    @patch.object(ldap, "initialize")
+    def test_lookup_user_ldap_operations_error(self, mock_ldap_initialize):
+        # define bind dn/password
+        self.authentifier.bind_dn = "uid=read,ou=apps,dc=corp,dc=org"
+        self.authentifier.bind_password = "uid=read,ou=apps,dc=corp,dc=org"
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        mock_ldap_object.search_s.side_effect = ldap.OPERATIONS_ERROR("fail")
+
+        # Check exception is raised due to LDAP server down
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            r"^Operations error on user DN lookup: fail$",
+        ):
+            self.authentifier._lookup_user_dn("john")
+        mock_ldap_object.search_s.assert_called_once()
+        mock_ldap_object.unbind_s.assert_called_once()
 
     @patch.object(ldap, "initialize")
     def test_lookup_user_dn_enabled_not_found(self, mock_ldap_initialize):
@@ -839,10 +859,19 @@ class TestLDAPAuthentifier(unittest.TestCase):
             self.authentifier.users()
 
     @patch.object(ldap.ldapobject.LDAPObject, "search_s")
-    def test_users_ldap_errors(self, mock_search_s):
+    def test_users_ldap_server_down_error(self, mock_search_s):
         mock_search_s.side_effect = ldap.SERVER_DOWN("fail")
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
             rf"^LDAP server {self.authentifier.uri.geturl()} is unreachable$",
+        ):
+            self.authentifier.users()
+
+    @patch.object(ldap.ldapobject.LDAPObject, "search_s")
+    def test_users_ldap_operations_error(self, mock_search_s):
+        mock_search_s.side_effect = ldap.OPERATIONS_ERROR("fail")
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError,
+            r"^Operations error on users search: fail$",
         ):
             self.authentifier.users()
