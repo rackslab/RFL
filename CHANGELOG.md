@@ -8,8 +8,11 @@ and this project adheres to
 
 ## [unreleased]
 
-### Fixed
+### Changed
+- log: Disable debug by default with `DaemonFormatter` similarly to
+  `TTYFormatter`.
 
+### Fixed
 - auth: Catch `ldap.OPERATIONS_ERROR` on LDAP users list and user DN lookup
   searches (#40).
 
