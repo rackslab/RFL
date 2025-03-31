@@ -66,7 +66,7 @@ class TTYFormatter(logging.Formatter):
 
 
 class DaemonFormatter(logging.Formatter):
-    def __init__(self, debug=True):
+    def __init__(self, debug=False):
         if debug:
             _fmt = "%(threadName)s: [%(levelname)s] %(name)s %(message)s"
         else:
