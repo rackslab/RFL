@@ -6,6 +6,7 @@
 
 import unittest
 from unittest import mock
+import os
 import logging
 
 from rfl.log.formatters import (
@@ -36,6 +37,21 @@ class TestTTYFormatter(unittest.TestCase):
         self.assertIn("INFO ⸬ test record", msg)
         self.assertIn(LOG_LEVEL_ANSI_STYLES[RECORD.levelno].end, msg)
 
+    def test_format_no_color(self):
+        os.environ["NO_COLOR"] = "1"
+        formatter = TTYFormatter()
+        msg = formatter.format(RECORD)
+        self.assertEqual("INFO ⸬ test record", msg)
+        del os.environ["NO_COLOR"]
+
+    def test_format_no_color_empty(self):
+        os.environ["NO_COLOR"] = ""
+        formatter = TTYFormatter()
+        msg = formatter.format(RECORD)
+        # When NO_COLOR environment variable is an empty string, colors are enabled.
+        self.assertIn(LOG_LEVEL_ANSI_STYLES[RECORD.levelno].start, msg)
+        del os.environ["NO_COLOR"]
+
     def test_format_debug(self):
         formatter = TTYFormatter(debug=True)
         msg = formatter.format(RECORD)
@@ -43,6 +59,13 @@ class TestTTYFormatter(unittest.TestCase):
         self.assertIn("[INFO]  ⸬rfl:0", msg)
         self.assertIn("↦ test record", msg)
         self.assertIn(LOG_LEVEL_ANSI_STYLES[RECORD.levelno].end, msg)
+
+    def test_format_debug_no_color(self):
+        os.environ["NO_COLOR"] = "1"
+        formatter = TTYFormatter(debug=True)
+        msg = formatter.format(RECORD)
+        self.assertEqual("[INFO]  ⸬rfl:0                          ↦ test record", msg)
+        del os.environ["NO_COLOR"]
 
 
 class TestDaemonFormatter(unittest.TestCase):
