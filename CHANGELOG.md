@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+- log: Support de-facto standard `NO_COLOR` environment variable by disabling
+  ANSI colors when this variable is set with non-empty value (#45).
+
 ### Changed
 - log: Disable debug by default with `DaemonFormatter` similarly to
   `TTYFormatter`.
