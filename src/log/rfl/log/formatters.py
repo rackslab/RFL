@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import sys
+import os
 import logging
 
 
@@ -15,6 +16,12 @@ def auto_formatter():
         return TTYFormatter
     else:
         return DaemonFormatter
+
+
+class NOANSIStyle:
+    def __init__(self):
+        self.start = ""
+        self.end = ""
 
 
 class ANSIStyle:
@@ -48,10 +55,16 @@ class TTYFormatter(logging.Formatter):
     def __init__(self, debug=False):
         super().__init__("%(message)s")
         self.debug = debug
+        self.colored = True
+        if os.environ.get("NO_COLOR", ""):
+            self.colored = False
 
     def format(self, record):
         _msg = record.getMessage()
-        style = LOG_LEVEL_ANSI_STYLES[record.levelno]
+        if self.colored:
+            style = LOG_LEVEL_ANSI_STYLES[record.levelno]
+        else:
+            style = NOANSIStyle()
         prefix = ""
         if self.debug:
             prefix = "{level:8s}⸬{where:30s} ↦ ".format(
