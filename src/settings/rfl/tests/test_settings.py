@@ -70,6 +70,11 @@ section2:
     param_list_network:
         type: list
         content: network
+    param_deprecated:
+        type: str
+        deprecated:
+            section: section1
+            parameter: param_str
 """
 
 VALID_SITE = """
@@ -306,6 +311,95 @@ class TestSettingsDefinition(unittest.TestCase):
         ):
             SettingsDefinition(loader)
 
+    def test_deprecated_invalid_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["deprecated"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Unsupported format of \[section2\]>param_deprecated deprecated "
+            r"property$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_missing_key(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        del loader.content["section2"]["param_deprecated"]["deprecated"]["parameter"]
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Unexpected keys in \[section2\]>param_deprecated deprecated property$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_unexpected_key(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["deprecated"]["fail"] = "hello"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Unexpected keys in \[section2\]>param_deprecated deprecated property$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_unsupported_section_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["deprecated"]["section"] = 0
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Unexpected type of \[section2\]>param_deprecated deprecated section "
+            r"property$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_unsupported_parameter_type(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["deprecated"]["parameter"] = 0
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Unexpected type of \[section2\]>param_deprecated deprecated parameter "
+            r"property$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_required(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["required"] = True
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Deprecated parameter \[section2\]>param_deprecated cannot be required$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_default(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["default"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Deprecated parameter \[section2\]>param_deprecated cannot have default "
+            r"value$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_invalid_section_reference(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["deprecated"]["section"] = "fail"
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Invalid deprecated reference on parameter "
+            r"\[section2\]>param_deprecated$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_deprecated_invalid_parameter_reference(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["param_deprecated"]["deprecated"]["parameter"] = (
+            "fail"
+        )
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Invalid deprecated reference on parameter "
+            r"\[section2\]>param_deprecated$",
+        ):
+            SettingsDefinition(loader)
+
 
 class TestRuntimeSettings(unittest.TestCase):
     def test_valid_settings(self):
@@ -504,6 +598,41 @@ class TestRuntimeSettings(unittest.TestCase):
         ):
             settings.override(site_loader)
 
+    def test_site_override_deprecated(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        del site_loader.content["section1"]["param_str"]
+        site_loader.content["section2"]["param_deprecated"] = "value"
+
+        with self.assertWarnsRegex(
+            FutureWarning,
+            r"^Parameter \[section2\]>param_deprecated is deprecated in favor of "
+            r"\[section1\]>param_str$",
+        ):
+            settings.override(site_loader)
+        self.assertEqual(settings.section2.param_deprecated, "value")
+
+    def test_site_override_skip(self):
+        def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        definition = SettingsDefinition(def_loader)
+        settings = RuntimeSettings(definition)
+        site_loader = RuntimeSettingsSiteLoaderIni(VALID_SITE)
+        site_loader.content["section2"]["param_deprecated"] = "value"
+
+        with self.assertLogs("rfl", level="WARNING") as cm:
+            settings.override(site_loader)
+        self.assertEqual(
+            cm.output,
+            [
+                "WARNING:rfl.settings:Ignoring deprecated parameter "
+                "[section2]>param_deprecated since replacement parameter "
+                "[section1]>param_str is also defined"
+            ],
+        )
+        self.assertIsNone(settings.section2.param_deprecated)
+
     @patch("sys.stdout", new_callable=StringIO)
     def test_dump(self, mock_stdout):
         def_loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
@@ -530,5 +659,6 @@ class TestRuntimeSettings(unittest.TestCase):
             "  param_list_uri: http://localhost, https://remote.host/path/to/resource "
             "(site:ini:raw)\n"
             "  param_list_ip: 192.168.1.24, 10.0.0.3 (site:ini:raw)\n"
-            "  param_list_network: 192.168.3.0/24, 10.0.0.0/17 (site:ini:raw)\n",
+            "  param_list_network: 192.168.3.0/24, 10.0.0.0/17 (site:ini:raw)\n"
+            "  param_deprecated[🪦]: ∅ (definition:yaml:raw)\n",
         )
