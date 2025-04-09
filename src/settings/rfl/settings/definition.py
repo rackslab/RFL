@@ -56,6 +56,7 @@ class SettingsParameterDefinition:
         "doc": "doc",
         "ex": "example",
         "required": "required",
+        "deprecated": "deprecated",
     }
     EXPECTED_TYPES = {
         "str": str,
@@ -113,6 +114,36 @@ class SettingsParameterDefinition:
                 f"Content property is forbidden for parameter {str(self)} with type "
                 f"{self._type}"
             )
+
+        # Check deprecated format
+        if "deprecated" in properties:
+            # check format
+            if not isinstance(properties["deprecated"], dict):
+                raise SettingsDefinitionError(
+                    f"Unsupported format of {self} deprecated property"
+                )
+            if sorted(properties["deprecated"].keys()) != ["parameter", "section"]:
+                raise SettingsDefinitionError(
+                    f"Unexpected keys in {self} deprecated property"
+                )
+            if not isinstance(properties["deprecated"]["section"], str):
+                raise SettingsDefinitionError(
+                    f"Unexpected type of {self} deprecated section property"
+                )
+            if not isinstance(properties["deprecated"]["parameter"], str):
+                raise SettingsDefinitionError(
+                    f"Unexpected type of {self} deprecated parameter property"
+                )
+            # check no default value
+            if self.default is not None:
+                raise SettingsDefinitionError(
+                    f"Deprecated parameter {self} cannot have default value"
+                )
+            # check not required
+            if self.required:
+                raise SettingsDefinitionError(
+                    f"Deprecated parameter {self} cannot be required"
+                )
 
         # If the default value is defined, convert to the expected type and validate it
         # is a valid choice.
@@ -208,6 +239,7 @@ class SettingsDefinition:
             SettingsSectionDefinition(section, parameters)
             for section, parameters in loader.content.items()
         ]
+        self._validate_deprecated_references()
 
     def has_section(self, name: str) -> bool:
         for section in self.sections:
@@ -220,3 +252,16 @@ class SettingsDefinition:
             if section.name == name:
                 return section
         return None
+
+    def _validate_deprecated_references(self):
+        for section in self.sections:
+            for parameter in section.parameters:
+                if parameter.deprecated:
+                    if not self.has_section(
+                        parameter.deprecated["section"]
+                    ) or not self.section(
+                        parameter.deprecated["section"]
+                    ).has_parameter(parameter.deprecated["parameter"]):
+                        raise SettingsDefinitionError(
+                            f"Invalid deprecated reference on parameter {parameter}"
+                        )
