@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import unittest
-import logging
 
 from rfl.authentication.user import AuthenticatedUser, AnonymousUser
 from rfl.permissions.rbac import (
@@ -284,9 +283,6 @@ class TestRBACPolicyManager(unittest.TestCase):
         definition = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
         loader = RBACPolicyRolesIniLoader(definition=definition, raw=VALID_ROLES)
         manager = RBACPolicyManager(loader)
-        # Disable warning logging printed when user action is denied.
-        logging.disable(logging.CRITICAL)
-
         # Members of users group must have access to base and user roles actions but not
         # to anonymous and operator role actions.
         user = AuthenticatedUser(login="FAKE", groups=["users"])
