@@ -8,6 +8,7 @@ from pathlib import Path
 import urllib
 import ipaddress
 
+import warnings
 import logging
 
 from .definition import (
@@ -91,6 +92,31 @@ class RuntimeSettings:
         choice and set corresponding object attribute. Special logic is applied for list
         to iterate over the items."""
         raw = loader.content[section.name].get(parameter.name)
+        # Check if parameter is deprecated.
+        if parameter.deprecated:
+            # Check replacement parameter is not defined as well. If yes, ignore
+            # deprecated parameter and log warning message.
+            if (
+                parameter.deprecated["section"] in loader.content
+                and parameter.deprecated["parameter"]
+                in loader.content[parameter.deprecated["section"]]
+            ):
+                logger.warning(
+                    "Ignoring deprecated parameter %s since replacement parameter "
+                    "[%s]>%s is also defined",
+                    parameter,
+                    parameter.deprecated["section"],
+                    parameter.deprecated["parameter"],
+                )
+                return
+            # Deprecated parameter is actually loaded, emit FutureWarning to alert end
+            # user about the deprecation notice.
+            warnings.warn(
+                f"Parameter {parameter} is deprecated in favor of "
+                f"[{parameter.deprecated['section']}]>"
+                f"{parameter.deprecated['parameter']}",
+                FutureWarning,
+            )
         if parameter._type == "list":
             value = [
                 self._load_parameter_value(parameter, parameter.content, raw)
@@ -211,8 +237,16 @@ class RuntimeSettings:
                             .parameter(parameter_name)
                             ._type,
                         )
+                # Add tag for deprecated parameters
+                tag = ""
+                if (
+                    self._definition.section(section_name)
+                    .parameter(parameter_name)
+                    .deprecated
+                ):
+                    tag = "[🪦]"
                 print(
-                    f"  {parameter_name}: {value} ({origin})",
+                    f"  {parameter_name}{tag}: {value} ({origin})",
                 )
 
     def override_ini(self, path: Path) -> None:
