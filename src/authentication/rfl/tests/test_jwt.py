@@ -13,6 +13,7 @@ import unittest
 from rfl.authentication.user import AuthenticatedUser, AnonymousUser
 from rfl.authentication.jwt import (
     jwt_gen_key,
+    jwt_validate_expiration,
     JWTPrivateKeyFileLoader,
     JWTBaseManager,
     JWTManager,
@@ -66,6 +67,33 @@ class TestJWTGenKey(unittest.TestCase):
             r"file or directory: '/dev/fail/fail.key'$",
         ):
             jwt_gen_key(key_path)
+
+
+class TestJWTValidateExpiration(unittest.TestCase):
+    def test_ok(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTBaseManager("HS256", loader)
+        token = manager.generate(1, {"user": "test"})
+        payload = jwt_validate_expiration(token)
+        self.assertCountEqual(payload.keys(), ["iat", "exp", "user"])
+        self.assertEqual(payload["user"], "test")
+
+    def test_token_expired(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTBaseManager("HS256", loader)
+        token = manager.generate(-1, {"user": "test"})
+        with self.assertRaisesRegex(
+            JWTDecodeError,
+            r"^Token is expired$",
+        ):
+            jwt_validate_expiration(token)
+
+    def test_token_invalid(self):
+        with self.assertRaisesRegex(
+            JWTDecodeError,
+            r"^Unable to decode token: Not enough segments$",
+        ):
+            jwt_validate_expiration("fail")
 
 
 class TestJWTPrivateKeyFileLoader(unittest.TestCase):
