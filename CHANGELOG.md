@@ -14,6 +14,8 @@ and this project adheres to
     colors when this variable is set with non-empty value (#45).
   - Support optional logger component used as prefix of every log entries.
 - settings: Support parameters deprecation (#48).
+- auth: Introduce `JWTBaseManager` for more generic and versatile JWT encode and
+  decode management with custom claimset.
 
 ### Changed
 - log: Disable debug by default with `DaemonFormatter` similarly to

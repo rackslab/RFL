@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import typing as t
 import secrets
 from datetime import datetime, timezone, timedelta
 import logging
@@ -108,22 +109,16 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
             raise JWTPrivateKeyLoaderError(f"Key loaded from file {self.path} is empty")
 
 
-class JWTManager:
-    def __init__(self, audience: str, algorithm: str, loader: JWTPrivateKeyLoader):
-        self.audience = audience
+class JWTBaseManager:
+    def __init__(self, algorithm: str, loader: JWTPrivateKeyLoader):
         self.algorithm = algorithm
         self.key = loader.key
 
-    def decode(self, token) -> AuthenticatedUser:
+    def decode(self, token, **claimset) -> AuthenticatedUser:
         """Decode the given token with the encryption key an returns the user of
         this token."""
         try:
-            payload = jwt.decode(
-                token,
-                self.key,
-                audience=self.audience,
-                algorithms=[self.algorithm],
-            )
+            return jwt.decode(token, self.key, algorithms=[self.algorithm], **claimset)
         except jwt.InvalidSignatureError as err:
             raise JWTDecodeError("Token signature is invalid") from err
         except jwt.ExpiredSignatureError as err:
@@ -132,19 +127,16 @@ class JWTManager:
             raise JWTDecodeError("Token audience is invalid") from err
         except jwt.exceptions.DecodeError as err:
             raise JWTDecodeError(f"Unable to decode token: {str(err)}") from err
-        return AuthenticatedUser(login=payload["sub"], groups=payload["groups"])
 
-    def generate(self, user: AuthenticatedUser, duration: int) -> str:
-        """Returns a JWT token for the given user, signed with the encryption
-        key, for the configured audience and valid for the given duration."""
+    def generate(
+        self, duration: int, claimset: t.Optional[t.Dict[str, t.Any]] = {}
+    ) -> str:
         try:
             token = jwt.encode(
                 {
                     "iat": datetime.now(tz=timezone.utc),
                     "exp": datetime.now(tz=timezone.utc) + timedelta(days=duration),
-                    "aud": self.audience,
-                    "sub": user.login,
-                    "groups": user.groups,
+                    **claimset,
                 },
                 self.key,
                 algorithm=self.algorithm,
@@ -155,6 +147,33 @@ class JWTManager:
         if isinstance(token, bytes):
             return token.decode()
         return token
+
+
+class JWTManager(JWTBaseManager):
+    def __init__(self, audience: str, algorithm: str, loader: JWTPrivateKeyLoader):
+        super().__init__(algorithm, loader)
+        self.audience = audience
+
+    def decode(self, token) -> AuthenticatedUser:
+        """Decode the given token with the encryption key an returns the user of
+        this token."""
+        try:
+            payload = super().decode(token, audience=self.audience)
+        except jwt.InvalidAudienceError as err:
+            raise JWTDecodeError("Token audience is invalid") from err
+        return AuthenticatedUser(login=payload["sub"], groups=payload["groups"])
+
+    def generate(self, user: AuthenticatedUser, duration: int) -> str:
+        """Returns a JWT token for the given user, signed with the encryption
+        key, for the configured audience and valid for the given duration."""
+        return super().generate(
+            duration,
+            {
+                "aud": self.audience,
+                "sub": user.login,
+                "groups": user.groups,
+            },
+        )
 
     @classmethod
     def key(
