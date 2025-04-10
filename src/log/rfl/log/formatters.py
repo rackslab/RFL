@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import typing as t
 import sys
 import os
 import logging
@@ -52,9 +53,10 @@ LOG_LEVEL_ANSI_STYLES = {
 
 
 class TTYFormatter(logging.Formatter):
-    def __init__(self, debug=False):
+    def __init__(self, debug: bool = False, component: t.Optional[str] = None):
         super().__init__("%(message)s")
         self.debug = debug
+        self.component = component
         self.colored = True
         if os.environ.get("NO_COLOR", ""):
             self.colored = False
@@ -75,13 +77,18 @@ class TTYFormatter(logging.Formatter):
             # prefix with level if over info
             prefix = "{level} ⸬ ".format(level=record.levelname)
 
+        if self.component:
+            prefix = f"❬{self.component:15}❭ {prefix}"
+
         return style.start + prefix + _msg + style.end
 
 
 class DaemonFormatter(logging.Formatter):
-    def __init__(self, debug=False):
+    def __init__(self, debug: bool = False, component: t.Optional[str] = None):
         if debug:
             _fmt = "%(threadName)s: [%(levelname)s] %(name)s %(message)s"
         else:
             _fmt = "%(threadName)s: [%(levelname)s] %(message)s"
+        if component:
+            _fmt = f"❬{component}❭ {_fmt}"
         super().__init__(_fmt)
