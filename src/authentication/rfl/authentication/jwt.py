@@ -37,6 +37,20 @@ def jwt_gen_key(path: Path):
     path.chmod(0o400)  # restrict access to encryption key
 
 
+def jwt_validate_expiration(token: str):
+    """Load JWT and check its expiration but not its signature, and its claimset. This
+    can be useful to validate JWT on client side before using it, without access to
+    its private signature key."""
+    try:
+        return jwt.decode(
+            token, options={"verify_signature": False, "verify_exp": True}
+        )
+    except jwt.ExpiredSignatureError as err:
+        raise JWTDecodeError("Token is expired") from err
+    except jwt.exceptions.DecodeError as err:
+        raise JWTDecodeError(f"Unable to decode token: {str(err)}") from err
+
+
 class JWTPrivateKeyLoader:
     pass
 
