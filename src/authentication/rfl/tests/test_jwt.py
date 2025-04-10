@@ -11,7 +11,12 @@ import os
 import unittest
 
 from rfl.authentication.user import AuthenticatedUser, AnonymousUser
-from rfl.authentication.jwt import jwt_gen_key, JWTPrivateKeyFileLoader, JWTManager
+from rfl.authentication.jwt import (
+    jwt_gen_key,
+    JWTPrivateKeyFileLoader,
+    JWTBaseManager,
+    JWTManager,
+)
 from rfl.authentication.errors import (
     JWTPrivateKeyGeneratorError,
     JWTPrivateKeyLoaderError,
@@ -154,6 +159,52 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
                 rf"Permission denied to create key parent directory {key_path.parent}",
             ):
                 JWTPrivateKeyFileLoader(path=key_path, create=True, create_parent=True)
+
+
+class TestJWTBaseManager(unittest.TestCase):
+    def test_generate_decode(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTBaseManager("HS256", loader)
+        token = manager.generate(1)
+        self.assertCountEqual(manager.decode(token).keys(), ["iat", "exp"])
+
+    def test_generate_decode_claimset(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTBaseManager("HS256", loader)
+        token = manager.generate(1, {"user": "test"})
+        payload = manager.decode(token)
+        self.assertCountEqual(payload.keys(), ["iat", "exp", "user"])
+        self.assertEqual(payload["user"], "test")
+
+    def test_invalid_algo(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTBaseManager("FAIL", loader)
+        with self.assertRaisesRegex(
+            JWTEncodeError,
+            r"^JWT token encode error: Algorithm not supported$",
+        ):
+            manager.generate(1)
+
+    def test_invalid_token(self):
+        loader = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager = JWTBaseManager("HS256", loader)
+        with self.assertRaisesRegex(
+            JWTDecodeError,
+            r"^Unable to decode token: Not enough segments$",
+        ):
+            manager.decode("FAIL")
+
+    def test_invalid_signature(self):
+        loader1 = JWTPrivateKeyFileLoader(value=PRIVATE_KEY)
+        manager1 = JWTBaseManager("HS256", loader1)
+        loader2 = JWTPrivateKeyFileLoader(value=b"OTHER_PRIVATE_KEY")
+        manager2 = JWTBaseManager("HS256", loader2)
+        token = manager1.generate(1)
+        with self.assertRaisesRegex(
+            JWTDecodeError,
+            r"^Token signature is invalid$",
+        ):
+            manager2.decode(token)
 
 
 class TestJWTManager(unittest.TestCase):
