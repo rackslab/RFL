@@ -67,6 +67,21 @@ class TestTTYFormatter(unittest.TestCase):
         self.assertEqual("[INFO]  ⸬rfl:0                          ↦ test record", msg)
         del os.environ["NO_COLOR"]
 
+    def test_format_component(self):
+        formatter = TTYFormatter(component="test")
+        msg = formatter.format(RECORD)
+        self.assertIn(LOG_LEVEL_ANSI_STYLES[RECORD.levelno].start, msg)
+        self.assertIn("❬test           ❭", msg)
+        self.assertIn("INFO ⸬ test record", msg)
+        self.assertIn(LOG_LEVEL_ANSI_STYLES[RECORD.levelno].end, msg)
+
+    def test_format_component_no_color(self):
+        os.environ["NO_COLOR"] = "1"
+        formatter = TTYFormatter(component="test")
+        msg = formatter.format(RECORD)
+        self.assertEqual("❬test           ❭ INFO ⸬ test record", msg)
+        del os.environ["NO_COLOR"]
+
 
 class TestDaemonFormatter(unittest.TestCase):
     def test_format(self):
@@ -78,3 +93,8 @@ class TestDaemonFormatter(unittest.TestCase):
         formatter = DaemonFormatter(debug=True)
         msg = formatter.format(RECORD)
         self.assertEqual(msg, "MainThread: [INFO] rfl test record")
+
+    def test_format_component(self):
+        formatter = DaemonFormatter(component="test")
+        msg = formatter.format(RECORD)
+        self.assertEqual(msg, "❬test❭ MainThread: [INFO] test record")
