@@ -9,8 +9,10 @@ and this project adheres to
 ## [unreleased]
 
 ### Added
-- log: Support de-facto standard `NO_COLOR` environment variable by disabling
-  ANSI colors when this variable is set with non-empty value (#45).
+- log:
+  - Support de-facto standard `NO_COLOR` environment variable by disabling ANSI
+    colors when this variable is set with non-empty value (#45).
+  - Support optional logger component used as prefix of every log entries.
 - settings: Support parameters deprecation (#48).
 
 ### Changed

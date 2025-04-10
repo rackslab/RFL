@@ -17,6 +17,7 @@ def setup_logger(
     log_flags: Optional[List[str]] = None,
     debug_flags: Optional[List[str]] = None,
     formatter: logging.Formatter = auto_formatter(),
+    component: Optional[str] = None,
 ) -> None:
     """Setup root logger debug level, debug flags and formatter."""
     if debug:
@@ -33,7 +34,7 @@ def setup_logger(
     root_logger.setLevel(logging_level)
     handler = logging.StreamHandler()
     handler.setLevel(logging_level)
-    formatter = formatter(debug)
+    formatter = formatter(debug, component)
     handler.setFormatter(formatter)
 
     # filter out all libs logs not enabled in flags
