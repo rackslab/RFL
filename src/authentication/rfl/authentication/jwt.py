@@ -62,7 +62,9 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
         value: str = None,
         create: bool = False,
         create_parent: bool = False,
+        text: bool = False,
     ):
+        self.text = text
         if path is not None:
             logger.debug("Loading JWT private key from path %s", path)
             self.path = path
@@ -109,7 +111,10 @@ class JWTPrivateKeyFileLoader(JWTPrivateKeyLoader):
                 )
         # Load the instance tokens encryption key
         try:
-            with open(self.path, "r") as fh:
+            mode = "rb"
+            if self.text:
+                mode = "r"
+            with open(self.path, mode) as fh:
                 self.key = fh.read()
         except PermissionError as err:
             raise JWTPrivateKeyLoaderError(

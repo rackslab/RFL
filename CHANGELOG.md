@@ -25,8 +25,11 @@ and this project adheres to
   `TTYFormatter`.
 
 ### Fixed
-- auth: Catch `ldap.OPERATIONS_ERROR` on LDAP users list and user DN lookup
-  searches (#40).
+- auth:
+  - Catch `ldap.OPERATIONS_ERROR` on LDAP users list and user DN lookup
+    searches (#40).
+  - Support binary non-ascii JWT private signature key by default with option to
+    expect text key.
 
 ## [1.3.0] - 2025-02-03
 
