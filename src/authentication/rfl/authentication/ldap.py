@@ -35,6 +35,7 @@ class LDAPAuthentifier:
         bind_password: Optional[str] = None,
         restricted_groups: Optional[List[str]] = None,
         lookup_user_dn: bool = False,
+        lookup_as_user: Optional[bool] = True,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -56,6 +57,26 @@ class LDAPAuthentifier:
         self.bind_password = bind_password
         self.restricted_groups = restricted_groups
         self.lookup_user_dn = lookup_user_dn
+        # The lookup_as_user attribute is a boolean to control which bind dn is used to
+        # retrieve user information and user groups after successful authentication.
+        #
+        # When True (default), LDAP connection is kept after authentication to use user
+        # permissions.
+        #
+        # When False, LDAP connection is closed, another LDAP connection is opened. This
+        # connection is binded with service bind dn and password when defined. When not
+        # defined, user information and groups are retrieved anonymously.
+        #
+        # When the lookup_as_user argument is not defined, it is enabled when either
+        # bind dn or password are not defined, and disabled otherwise. When argument
+        # value is True or False, this value is directly used.
+        if lookup_as_user is None:
+            if self.bind_dn is None or self.bind_password is None:
+                self.lookup_as_user = True
+            else:
+                self.lookup_as_user = False
+        else:
+            self.lookup_as_user = lookup_as_user
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
@@ -333,8 +354,18 @@ class LDAPAuthentifier:
 
         connection = self.connection()
         try:
-            # Try simple authentication with user DN and password on LDAP directory
+            # Bind with user password to test their credentials
             connection.simple_bind_s(user_dn, password)
+
+            # Unless lookup as user is enabled, close current connection with
+            # authenticated user credentials, open another connection and bind with
+            # service dn (if defined).
+            if not self.lookup_as_user:
+                logger.debug("Re-initialize LDAP connection to avoid lookup as user")
+                connection.unbind_s()
+                connection = self.connection()
+                self._bind(connection)
+
             fullname, gid = self._get_user_info(connection, user_dn)
             groups = self._get_groups(connection, user, user_dn, gid)
         except ldap.SERVER_DOWN as err:
