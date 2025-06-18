@@ -15,6 +15,10 @@ class LDAPAuthenticationError(AuthenticationError):
     pass
 
 
+class LDAPPasswordFileLoadError(AuthenticationError):
+    pass
+
+
 class JWTError(AuthenticationError):
     pass
 

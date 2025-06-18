@@ -11,7 +11,7 @@ import logging
 import ldap
 
 from .user import AuthenticatedUser
-from .errors import LDAPAuthenticationError
+from .errors import LDAPAuthenticationError, LDAPPasswordFileLoadError
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class LDAPAuthentifier:
         starttls: bool = False,
         bind_dn: Optional[str] = None,
         bind_password: Optional[str] = None,
+        bind_password_file: Optional[Path] = None,
         restricted_groups: Optional[List[str]] = None,
         lookup_user_dn: bool = False,
     ):
@@ -54,8 +55,35 @@ class LDAPAuthentifier:
         self.starttls = starttls
         self.bind_dn = bind_dn
         self.bind_password = bind_password
+        self.load_ldap_password_from_file(bind_password_file)
         self.restricted_groups = restricted_groups
         self.lookup_user_dn = lookup_user_dn
+
+    def load_ldap_password_from_file(self, bind_password_file: Optional[Path]):
+        if bind_password_file is None:
+            return
+
+        logger.debug(f"Loading LDAP bind password from path {bind_password_file}")
+
+        if not bind_password_file.is_file():
+            raise LDAPPasswordFileLoadError(
+                f"LDAP password file path {bind_password_file} is not a file"
+            )
+        try:
+            self.bind_password = bind_password_file.read_text()
+        except PermissionError as err:
+            raise LDAPPasswordFileLoadError(
+                f"Permission error to access password file {bind_password_file}"
+            ) from err
+        except UnicodeDecodeError as err:
+            raise LDAPPasswordFileLoadError(
+                f"Unable to decode password file {bind_password_file}: {err}"
+            ) from err
+
+        if not len(self.bind_password):
+            raise LDAPPasswordFileLoadError(
+                f"Password loaded from file {bind_password_file} is empty"
+            )
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
