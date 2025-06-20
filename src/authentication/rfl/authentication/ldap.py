@@ -35,6 +35,7 @@ class LDAPAuthentifier:
         bind_password: Optional[str] = None,
         restricted_groups: Optional[List[str]] = None,
         lookup_user_dn: bool = False,
+        user_bind_lookups: Optional[bool] = None,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -56,6 +57,14 @@ class LDAPAuthentifier:
         self.bind_password = bind_password
         self.restricted_groups = restricted_groups
         self.lookup_user_dn = lookup_user_dn
+        if (
+            user_bind_lookups is None
+            and self.bind_dn is not None
+            and self.bind_password is not None
+        ):
+            self.user_bind_lookups = False
+        else:
+            self.user_bind_lookups = True
 
     def connection(self):
         connection = ldap.initialize(self.uri.geturl())
@@ -333,8 +342,12 @@ class LDAPAuthentifier:
 
         connection = self.connection()
         try:
-            # Try simple authentication with user DN and password on LDAP directory
-            connection.simple_bind_s(user_dn, password)
+            if self.user_bind_lookups:
+                # Try simple authentication with user DN and password on LDAP directory
+                connection.simple_bind_s(user_dn, password)
+            else:
+                # Bind with the specified credentials
+                self._bind(connection)
             fullname, gid = self._get_user_info(connection, user_dn)
             groups = self._get_groups(connection, user, user_dn, gid)
         except ldap.SERVER_DOWN as err:
