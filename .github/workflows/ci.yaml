@@ -15,11 +15,6 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
-        include:
-          - os: "ubuntu-22.04"
-            python-version: "3.7"
-          - os: "ubuntu-20.04"
-            python-version: "3.6"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -34,49 +29,135 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      # Unfortunately, pip and setuptools in python 3.6 does not support packages
-      # namespaces and PEP517 pyproject.toml. As a workaround for this version, the
-      # setup.py script provided by build package is copied and executed for all
-      # packages.
-      #
-      # This setup.py script does not handle dependencies properly, thus they are
-      # installed manually. Note the version is fixed for some external dependencies as
-      # latest version of these packages do not support Python 3.6 anymore.
-      #
-      # Note setup.py --root option is used to avoid installation of egg that are not
-      # properly supported by pytest --import-mode=importlib
-      - name: Install application (Python 3.6)
-        if: ${{ matrix.python-version == '3.6' }}
-        run: |
-          echo "::notice::Installing tomli (old version)"
-          pip install tomli==1.2.3
-          echo "::notice::Installing PyYAML (old version)"
-          pip install PyYAML==5.4.1
-          echo "::notice::Installing PyJWT (old version)"
-          pip install PyJWT==2.4.0
-          echo "::notice::Installing python-ldap"
-          pip install python-ldap
-          echo "::notice::Installing Werkzeug (old version)"
-          pip install "Werkzeug<0.13"
-          echo "::notice::Installing Flask (old version)"
-          pip install "flask<1.0"
-
-          for SUB_PKG in core authentication build log permissions settings web; do
-            echo "::group::Installing RFL.${SUB_PKG}"
-            cd ${GITHUB_WORKSPACE}/src/${SUB_PKG}
-            cp ${GITHUB_WORKSPACE}/src/build/rfl/build/scripts/setup setup.py
-            python3 setup.py install --root /
-            echo "::endgroup::"
-          done
       - name: Install application
-        if: ${{ matrix.python-version != '3.6' }}
         run: |
           pip install src/core src/authentication src/build src/log src/permissions src/settings src/web
 
-      # The cached_property decorator is integrated in Python 3.8+. For older versions,
-      # install cached_property external library.
-      - if: ${{ matrix.python-version == '3.6' || matrix.python-version == '3.7' }}
-        run: pip install cached_property
-
       - name: Run tests
         run: pytest --import-mode=importlib
+
+  os_rpm_tests:
+    name: OS integration tests (rpm)
+    strategy:
+      fail-fast: false
+      matrix:
+        envs:
+        - container: rockylinux/rockylinux:8
+          epel: 8
+          repo: powertools
+        - container: rockylinux/rockylinux:9
+          epel: 9
+          rackslab-repo: el9
+          repo: crb
+        - container: fedora:42
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.envs.container }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable EPEL repository (Rocky Linux)
+        if: ${{ startsWith(matrix.envs.container, 'rockylinux') }}
+        run: |
+          dnf -y install 'dnf-command(config-manager)'
+          dnf config-manager --set-enabled ${{ matrix.envs.repo }}
+          dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-${{ matrix.envs.epel }}.noarch.rpm
+
+      - name: Install tests dependencies
+        run: |
+          dnf -y install \
+            python3-flask \
+            python3-jwt \
+            python3-ldap \
+            python3-pip \
+            python3-pytest \
+            python3-PyYAML \
+            python3-tomli
+
+      # Unfortunately, pip and setuptools in RHEL8 do not fully support
+      # PEP517 pyproject.toml. As a workaround for this version, the setup.py
+      # script provided by RFL.build package is copied and executed.
+      - name: Install RFL.build setup wrapper (Rocky Linux 8)
+        if: ${{ matrix.envs.container == 'rockylinux/rockylinux:8' }}
+        run: |
+          cp src/build/rfl/build/scripts/setup src/core/setup.py
+          cp src/build/rfl/build/scripts/setup src/authentication/setup.py
+          cp src/build/rfl/build/scripts/setup src/build/setup.py
+          cp src/build/rfl/build/scripts/setup src/log/setup.py
+          cp src/build/rfl/build/scripts/setup src/permissions/setup.py
+          cp src/build/rfl/build/scripts/setup src/settings/setup.py
+          cp src/build/rfl/build/scripts/setup src/web/setup.py
+
+      - name: Install application
+        run: PIP=pip3 bash install.sh
+
+      # Unfortunately, pytest on rocky8 does not support
+      # --import-mode=importlib. On this old version, explicitely test all
+      # packages individually.
+      - name: Run tests (rocky8)
+        if: ${{ matrix.envs.container == 'rockylinux/rockylinux:8' }}
+        run: |
+          pytest-3 src/core
+          pytest-3 src/authentication
+          pytest-3 src/build
+          pytest-3 src/log
+          pytest-3 src/permissions
+          pytest-3 src/settings
+          pytest-3 src/web
+
+      - name: Run tests
+        if: ${{ matrix.envs.container != 'rockylinux/rockylinux:8' }}
+        run: pytest-3 --import-mode=importlib
+
+  os_deb_tests:
+    name: OS integration tests (deb)
+    strategy:
+      fail-fast: false
+      matrix:
+        envs:
+        - container: debian:stable
+        - container: debian:testing
+        - container: debian:unstable
+        - container: ubuntu:noble
+        - container: ubuntu:jammy
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.envs.container }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tests dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt update
+          apt install -y \
+            python3-flask \
+            python3-jwt \
+            python3-ldap \
+            python3-pip \
+            python3-pytest \
+            python3-tomli \
+            python3-yaml \
+            python3-venv
+
+      # Unfortunately, pip and setuptools in Ubuntu jammy do not fully support
+      # PEP517 pyproject.toml. As a workaround for this version, the setup.py
+      # script provided by RFL.build package is copied and executed.
+      - name: Install RFL.build setup wrapper (Ubuntu Jammy 22.04)
+        if: ${{ matrix.envs.container == 'ubuntu:jammy' }}
+        run: |
+          cp src/build/rfl/build/scripts/setup src/core/setup.py
+          cp src/build/rfl/build/scripts/setup src/authentication/setup.py
+          cp src/build/rfl/build/scripts/setup src/build/setup.py
+          cp src/build/rfl/build/scripts/setup src/log/setup.py
+          cp src/build/rfl/build/scripts/setup src/permissions/setup.py
+          cp src/build/rfl/build/scripts/setup src/settings/setup.py
+          cp src/build/rfl/build/scripts/setup src/web/setup.py
+
+      - name: Install application
+        run: |
+          python3 -m venv --system-site-packages ~/venv
+          EDITABLE=1 PIP=~/venv/bin/pip bash install.sh
+
+      - name: Run tests
+        run: ~/venv/bin/python3 -m pytest --import-mode=importlib

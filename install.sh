@@ -1,11 +1,13 @@
 #!/bin/bash
 
+: ${PIP:="pip"}
+
 function install {
     PKG=$1
     if [ -z $EDITABLE ]; then
-    	pip install src/${PKG}
+    	${PIP} install src/${PKG}
     else
-    	pip install -e src/${PKG}
+    	${PIP} install -e src/${PKG}
     fi
 }
 
