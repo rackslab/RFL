@@ -87,7 +87,7 @@ class TestingFlaskApp(flask.Flask, RFLTokenizedRBACWebApp):
         key.close()
         policy.close()
         roles.close()
-        flask.Flask.__init__(self, "rfl.web")
+        flask.Flask.__init__(self, "rfl.web", instance_path=Path.cwd())
         self.config.update(
             {
                 "TESTING": True,
