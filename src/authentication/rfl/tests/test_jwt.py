@@ -37,6 +37,8 @@ class TestJWTGenKey(unittest.TestCase):
             self.assertEqual(key_path.stat().st_size, 64)
 
     def test_gen_key_permission_error(self):
+        if os.geteuid() == 0:
+            self.skipTest("Cannot test permission error as root")
         with tempfile.TemporaryDirectory() as dir_name:
             key_path = Path(dir_name, "private.key")
             os.chmod(dir_name, 0o000)
@@ -137,6 +139,8 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             JWTPrivateKeyFileLoader(path=Path("/dev/not-found"))
 
     def test_load_path_permission_denied(self):
+        if os.geteuid() == 0:
+            self.skipTest("Cannot test permission error as root")
         with tempfile.NamedTemporaryFile() as fh:
             os.chmod(fh.name, 0o000)
             with self.assertRaisesRegex(
@@ -192,6 +196,8 @@ class TestJWTPrivateKeyFileLoader(unittest.TestCase):
             JWTPrivateKeyFileLoader(path=key_path, create=True)
 
     def test_load_create_parent_permission_denied(self):
+        if os.geteuid() == 0:
+            self.skipTest("Cannot test permission error as root")
         with tempfile.TemporaryDirectory() as dir_name:
             key_path = Path(dir_name, "subdir", "private.key")
             key_path.parent.parent.chmod(0o500)
