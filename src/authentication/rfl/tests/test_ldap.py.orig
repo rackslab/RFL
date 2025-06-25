@@ -374,59 +374,6 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ):
             self.authentifier.login("john", "SECR3T")
 
-    @patch.object(LDAPAuthentifier, "_get_groups")
-    @patch.object(LDAPAuthentifier, "_get_user_info")
-    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
-    @patch.object(LDAPAuthentifier, "_bind")
-    @patch.object(LDAPAuthentifier, "connection")
-    def test_login_no_bind_lookup_as_user_true(
-        self,
-        mock_connection,
-        mock_bind,
-        mock_lookup_user_dn,
-        mock_get_user_info,
-        mock_get_groups,
-    ):
-        # setup mocks return values
-        mock_get_groups.return_value = ["group1", "group2"]
-        mock_get_user_info.return_value = ("John Doe", 42)
-        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
-        mock_connection.return_value.simple_bind_s.return_value = None
-
-        # if lookup_as_user is False, login() must not call _bind().
-        self.authentifier.lookup_as_user = True
-        self.authentifier.login("john", "SECR3T")
-        mock_bind.assert_not_called()
-        mock_connection.return_value.simple_bind_s.assert_called_once_with(
-            "uid=john,ou=people,dc=corp,dc=org", "SECR3T"
-        )
-
-    @patch.object(LDAPAuthentifier, "_get_groups")
-    @patch.object(LDAPAuthentifier, "_get_user_info")
-    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
-    @patch.object(LDAPAuthentifier, "_bind")
-    @patch.object(LDAPAuthentifier, "connection")
-    def test_login_single_bind_lookup_as_user_false(
-        self,
-        mock_connection,
-        mock_bind,
-        mock_lookup_user_dn,
-        mock_get_user_info,
-        mock_get_groups,
-    ):
-        # setup mocks return values
-        mock_get_groups.return_value = ["group1", "group2"]
-        mock_get_user_info.return_value = ("John Doe", 42)
-        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
-
-        # if lookup_as_user is False, login() should call _bind() once.
-        self.authentifier.lookup_as_user = False
-        self.authentifier.login("john", "SECR3T")
-        mock_bind.assert_called_once()
-        mock_connection.return_value.simple_bind_s.assert_called_once_with(
-            "uid=john,ou=people,dc=corp,dc=org", "SECR3T"
-        )
-
     def test_user_info(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
         connection.search_s.return_value = [
@@ -929,74 +876,103 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ):
             self.authentifier.users()
 
-
-class TestLDAPAuthentifierInit(unittest.TestCase):
-    def test_lookup_as_user_auto_bind_dn(self):
-        # lookup_as_user is None, bind_dn and bind_password are set, should do lookup
-        # with service credentials.
+    def test_lookup_as_user_assignment(self):
+        # lookup_as_user is None, bind_dn and bind_password are set,
+        # should do lookup with credentials
+        uri = urllib.parse.urlparse("ldap://localhost")
         auth = LDAPAuthentifier(
-            uri=urllib.parse.urlparse("ldap://localhost"),
+            uri=uri,
             user_base="ou=people,dc=corp,dc=org",
             group_base="ou=groups,dc=corp,dc=org",
             bind_dn="uid=read,ou=apps,dc=corp,dc=org",
-            bind_password="SECR3T",
+            bind_password="uid=read,ou=apps,dc=corp,dc=org",
             lookup_as_user=None,
         )
         self.assertFalse(auth.lookup_as_user)
 
-    def test_lookup_as_user_auto_no_bind_user(self):
-        # lookup_as_user is None, bind_dn and bind_password are not set, should do
-        # lookup as user.
+        # lookup_as_user is explicitly set to True
         auth = LDAPAuthentifier(
-            uri=urllib.parse.urlparse("ldap://localhost"),
-            user_base="ou=people,dc=corp,dc=org",
-            group_base="ou=groups,dc=corp,dc=org",
-            bind_dn=None,
-            bind_password=None,
-            lookup_as_user=None,
-        )
-        self.assertTrue(auth.lookup_as_user)
-
-    def test_lookup_as_user_auto_no_bind_dn(self):
-        # lookup_as_user is None, bind_dn is not set, should do lookup as user.
-        auth = LDAPAuthentifier(
-            uri=urllib.parse.urlparse("ldap://localhost"),
-            user_base="ou=people,dc=corp,dc=org",
-            group_base="ou=groups,dc=corp,dc=org",
-            bind_dn=None,
-            bind_password="SECR3T",
-            lookup_as_user=None,
-        )
-        self.assertTrue(auth.lookup_as_user)
-
-    def test_lookup_as_user_auto_no_bind_password(self):
-        # lookup_as_user is None, bind_password is not set, should do lookup as user.
-        auth = LDAPAuthentifier(
-            uri=urllib.parse.urlparse("ldap://localhost"),
-            user_base="ou=people,dc=corp,dc=org",
-            group_base="ou=groups,dc=corp,dc=org",
-            bind_dn="uid=read,ou=apps,dc=corp,dc=org",
-            bind_password=None,
-            lookup_as_user=None,
-        )
-        self.assertTrue(auth.lookup_as_user)
-
-    def test_lookup_as_user_enabled(self):
-        # lookup_as_user is True, should do lookup as user.
-        auth = LDAPAuthentifier(
-            uri=urllib.parse.urlparse("ldap://localhost"),
+            uri=uri,
             user_base="ou=people,dc=corp,dc=org",
             group_base="ou=groups,dc=corp,dc=org",
             lookup_as_user=True,
         )
         self.assertTrue(auth.lookup_as_user)
 
-    def test_lookup_as_user_disabled(self):
-        # lookup_as_user is False, should do lookup with service credentials.
+        # lookup_as_user is explicitly set to False
         auth = LDAPAuthentifier(
-            uri=urllib.parse.urlparse("ldap://localhost"),
+            uri=uri,
             user_base="ou=people,dc=corp,dc=org",
             group_base="ou=groups,dc=corp,dc=org",
             lookup_as_user=False,
         )
         self.assertFalse(auth.lookup_as_user)
+
+        # lookup_as_user is None, bind_dn or bind_password is missing
+        auth = LDAPAuthentifier(
+            uri=uri,
+            user_base="ou=people,dc=corp,dc=org",
+            group_base="ou=groups,dc=corp,dc=org",
+            bind_dn=None,
+            bind_password=None,
+            lookup_as_user=None,
+        )
+        self.assertTrue(auth.lookup_as_user)
+
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    @patch.object(LDAPAuthentifier, "_bind")
+    @patch("rfl.authentication.ldap.ldap")
+    def test_login_no_bind_lookup_as_user_true(
+        self,
+        mock_ldap,
+        mock_bind,
+        mock_lookup_user_dn,
+        mock_get_user_info,
+        mock_get_groups,
+    ):
+        # setup mocks return values
+        mock_get_groups.return_value = ["group1", "group2"]
+        mock_get_user_info.return_value = ("John Doe", 42)
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
+        connection = self.authentifier.connection()
+
+        # if lookup_as_user is True, _bind should not be called
+        self.authentifier.lookup_as_user = True
+        mock_bind.reset_mock()
+        connection.simple_bind_s.return_value = None
+        self.authentifier.login("john", "SECR3T")
+        mock_bind.assert_not_called()
+        connection.simple_bind_s.assert_called_once_with(
+            "uid=john,ou=people,dc=corp,dc=org", "SECR3T"
+        )
+
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    @patch.object(LDAPAuthentifier, "_bind")
+    @patch("rfl.authentication.ldap.ldap")
+    def test_login_single_bind_lookup_as_user_false(
+        self,
+        mock_ldap,
+        mock_bind,
+        mock_lookup_user_dn,
+        mock_get_user_info,
+        mock_get_groups,
+    ):
+        # setup mocks return values
+        mock_get_groups.return_value = ["group1", "group2"]
+        mock_get_user_info.return_value = ("John Doe", 42)
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
+        connection = self.authentifier.connection()
+
+        # if lookup_as_user is False, _bind should be called once
+        self.authentifier.lookup_as_user = False
+        mock_bind.reset_mock()
+        connection.simple_bind_s.reset_mock()
+        self.authentifier.login("john", "SECR3T")
+        mock_bind.assert_called_once()
+        connection.simple_bind_s.assert_called_once_with(
+            "uid=john,ou=people,dc=corp,dc=org", "SECR3T"
+        )
