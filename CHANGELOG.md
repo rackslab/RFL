@@ -13,6 +13,10 @@ and this project adheres to
   user authentication to retrieve user information and groups (#57).
   Contribution from @Cornelicorn.
 
+### Fixed
+- pkg: Adopt PEP 639 to declare license in package metadata with SPDX notation
+  and fix deprecation notice raised by external build package (#52).
+
 ## [1.4.0] - 2025-04-11
 
 ### Added

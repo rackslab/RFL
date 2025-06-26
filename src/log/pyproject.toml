@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "RFL.log"
 version = "1.4.0"
 description = "Rackslab Foundation Library: log package"
-license = {text = "GPLv3+"}
+license = "GPL-3.0-or-later"
 requires-python = ">=3.6"
 keywords = ["utility", "basic"]
 authors = [
@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
     "Topic :: System :: Systems Administration",
 ]
