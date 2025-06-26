@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "RFL"
 version = "1.4.0"
 description = "Rackslab Foundation Library"
+license = "GPL-3.0-or-later"
 requires-python = ">=3.6"
 
 [tool.ruff.lint]
