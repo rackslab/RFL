@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RFL.web"
-version = "1.4.0"
+version = "1.5.0"
 description = "Rackslab Foundation Library: web package"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.6"
