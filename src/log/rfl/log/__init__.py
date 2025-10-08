@@ -8,8 +8,16 @@ from typing import Optional, List
 import logging
 
 from .formatters import TTYFormatter, DaemonFormatter, auto_formatter
+from .pager import AutoPager, enable_auto_paging, PagerError
 
-__all__ = [TTYFormatter, DaemonFormatter, auto_formatter]
+__all__ = [
+    TTYFormatter,
+    DaemonFormatter,
+    auto_formatter,
+    AutoPager,
+    enable_auto_paging,
+    PagerError,
+]
 
 
 def setup_logger(
