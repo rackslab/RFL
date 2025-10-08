@@ -2,7 +2,7 @@
 #
 # This file is part of RFL.
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: LGPL-3.0-or-later
 
 """This module contains a backport of asyncio.run() compatible with Python 3.6. It is
 designed to be called through asyncio_run() function which detects Python interpreter
