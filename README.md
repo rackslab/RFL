@@ -68,5 +68,5 @@ services.
 
 ## License
 
-RFL is distributed under the terms of the GNU General Public License v3.0
-or later (GPLv3+).
+RFL is distributed under the terms of the GNU Lesser General Public License v3.0
+or later (LGPLv3+).

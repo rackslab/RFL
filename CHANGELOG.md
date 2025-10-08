@@ -13,6 +13,9 @@ and this project adheres to
   - Introduce AutoPager context manager for auto-paging feature on TTY (#44).
   - Add dependency on `rfl.core`.
 
+### Changed
+- Change license from GPLv3+ to LGPLv3+.
+
 ## [1.5.0] - 2025-06-27
 
 ### Added
