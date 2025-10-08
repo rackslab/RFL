@@ -12,7 +12,9 @@ keywords = ["utility", "basic"]
 authors = [
     {name = "Rémi Palancher", email = "remi@rackslab.io"},
 ]
-dependencies = []
+dependencies = [
+    "RFL.core",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
