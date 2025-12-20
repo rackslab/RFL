@@ -9,6 +9,7 @@ from pathlib import Path
 import logging
 
 import ldap
+import ldap.filter
 
 from .user import AuthenticatedUser
 from .errors import LDAPAuthenticationError
@@ -196,7 +197,8 @@ class LDAPAuthentifier:
         search_filter = (
             "(&"
             f"(|{object_class_filter})"
-            f"(|(memberUid={user_name})(member={user_dn}){gid_filter}))"
+            f"(|(memberUid={ldap.filter.escape_filter_chars(user_name)})"
+            f"(member={ldap.filter.escape_filter_chars(user_dn)}){gid_filter}))"
         )
         try:
             results = connection.search_s(
@@ -283,7 +285,8 @@ class LDAPAuthentifier:
         self._bind(connection)
 
         search_filter = (
-            f"(&(objectClass={self.user_class})({self.user_name_attribute}={user}))"
+            f"(&(objectClass={self.user_class})"
+            f"({self.user_name_attribute}={ldap.filter.escape_filter_chars(user)}))"
         )
         try:
             results = connection.search_s(
