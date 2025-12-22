@@ -11,6 +11,7 @@ import urllib
 import ssl
 
 import ldap
+import ldap.filter
 
 from rfl.authentication.ldap import LDAPAuthentifier
 from rfl.authentication.errors import LDAPAuthenticationError
@@ -168,6 +169,39 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_ldap_object.unbind_s.assert_called_once()
 
     @patch.object(ldap, "initialize")
+    def test_lookup_user_dn_escape_special_chars(self, mock_ldap_initialize):
+        # enable user DN lookup
+        self.authentifier.lookup_user_dn = True
+        # setup LDAP mock
+        mock_ldap_object = mock_ldap_initialize.return_value
+        user_with_special_chars = "John Doe(user)"
+        escaped_user = ldap.filter.escape_filter_chars(user_with_special_chars)
+        mock_ldap_object.search_s.return_value = [
+            (
+                f"uid={user_with_special_chars},ou=admins,{self.authentifier.user_base}",
+                {"cn": [b"John Doe(user)"]},
+            )
+        ]
+
+        self.assertEqual(
+            self.authentifier._lookup_user_dn(user_with_special_chars),
+            f"uid={user_with_special_chars},ou=admins,{self.authentifier.user_base}",
+        )
+        # Verify the filter contains escaped user value
+        call_args = mock_ldap_object.search_s.call_args
+        search_filter = call_args[0][2]
+        # Verify the filter contains escaped user value
+        self.assertIn(
+            f"({self.authentifier.user_name_attribute}={escaped_user})", search_filter
+        )
+        # The unescaped value should NOT be in the filter
+        self.assertNotIn(
+            f"({self.authentifier.user_name_attribute}={user_with_special_chars})",
+            search_filter,
+        )
+        mock_ldap_object.unbind_s.assert_called_once()
+
+    @patch.object(ldap, "initialize")
     def test_lookup_user_dn_enabled_bind_dn_missing_password(
         self, mock_ldap_initialize
     ):
@@ -268,7 +302,7 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_ldap_object.unbind_s.assert_called_once()
 
     @patch.object(ldap, "initialize")
-    def test_lookup_user_dn_enabled_too_much_results(self, mock_ldap_initialize):
+    def test_lookup_user_dn_enabled_too_many_results(self, mock_ldap_initialize):
         # enable user DN lookup
         self.authentifier.lookup_user_dn = True
         # setup LDAP mock
@@ -549,6 +583,30 @@ class TestLDAPAuthentifier(unittest.TestCase):
             connection, "john", "uid=john,ou=people,dc=corp,dc=org", 42
         )
         self.assertEqual(groups, ["scientists", "biology"])
+
+    def test_get_groups_escape_special_chars(self):
+        connection = Mock(spec=ldap.ldapobject.LDAPObject)
+        connection.search_s.return_value = [
+            ("cn=scientists,ou=groups,dc=corp,dc=org", {"cn": [b"scientists"]}),
+        ]
+        user_name_with_special = "John Doe(user)"
+        user_dn_with_special = "uid=John Doe(user),ou=people,dc=corp,dc=org"
+        escaped_user_name = ldap.filter.escape_filter_chars(user_name_with_special)
+        escaped_user_dn = ldap.filter.escape_filter_chars(user_dn_with_special)
+        gid = 42
+        groups = self.authentifier._get_groups(
+            connection, user_name_with_special, user_dn_with_special, gid
+        )
+        self.assertEqual(groups, ["scientists"])
+
+        connection.search_s.assert_called_once_with(
+            self.authentifier.group_base,
+            ldap.SCOPE_SUBTREE,
+            f"(&(|(objectClass=posixGroup)(objectClass=groupOfNames))"
+            f"(|(memberUid={escaped_user_name})"
+            f"(member={escaped_user_dn})(gidNumber={gid})))",
+            [self.authentifier.group_name_attribute],
+        )
 
     def test_get_groups_without_gid(self):
         connection = Mock(spec=ldap.ldapobject.LDAPObject)
