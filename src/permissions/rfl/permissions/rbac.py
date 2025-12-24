@@ -6,8 +6,9 @@
 
 import configparser
 import logging
+import warnings
 from pathlib import Path
-from typing import Set, Tuple
+from typing import Optional, Set, Tuple
 
 from rfl.authentication.user import AuthenticatedUser
 import yaml
@@ -19,6 +20,28 @@ logger = logging.getLogger(__name__)
 
 ANONYMOUS_ROLE = "anonymous"
 ALL_MEMBER = "ALL"
+
+
+class ActionMetadata:
+    """Metadata describing an action in the policy definition."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        deprecated: bool = False,
+        replaced_by: Optional[str] = None,
+    ):
+        self.name = name
+        self.description = description
+        self.deprecated = deprecated
+        self.replaced_by = replaced_by
+
+    def __repr__(self):
+        return (
+            f"ActionMetadata(name={self.name}, deprecated={self.deprecated}, "
+            f"replaced_by={self.replaced_by})"
+        )
 
 
 class RBACPolicyRole:
@@ -58,7 +81,7 @@ class RBACPolicyDefinitionYAMLLoader(RBACPolicyDefinitionLoader):
                 f"Invalid YAML policy definition: {str(err)}"
             ) from err
         try:
-            self.actions = set(content["actions"].keys())
+            actions_content = content["actions"]
         except KeyError as err:
             raise RBACPolicyDefinitionLoadError(
                 "Actions key not found in YAML policy definition"
@@ -68,6 +91,71 @@ class RBACPolicyDefinitionYAMLLoader(RBACPolicyDefinitionLoader):
                 "Unable to extract the set of actions from actions key in YAML policy "
                 "definition"
             ) from err
+        if not isinstance(actions_content, dict):
+            raise RBACPolicyDefinitionLoadError(
+                "Actions definition must be a mapping of action names to definitions"
+            )
+
+        self.actions = {}
+        for action, definition in actions_content.items():
+            if isinstance(definition, str):
+                description = definition
+                deprecated = False
+                replaced_by = None
+            elif isinstance(definition, dict):
+                try:
+                    description = definition["description"]
+                except KeyError as err:
+                    raise RBACPolicyDefinitionLoadError(
+                        f"Description is mandatory for action {action}"
+                    ) from err
+                deprecated = definition.get("deprecated", False)
+                if not isinstance(deprecated, bool):
+                    raise RBACPolicyDefinitionLoadError(
+                        f"Invalid deprecated value for action {action}"
+                    )
+                replaced_by = definition.get("replaced_by")
+                if replaced_by is not None and not isinstance(replaced_by, str):
+                    raise RBACPolicyDefinitionLoadError(
+                        f"Invalid replaced_by value for action {action}"
+                    )
+            else:
+                raise RBACPolicyDefinitionLoadError(
+                    f"Invalid definition for action {action}"
+                )
+            self.actions[action] = ActionMetadata(
+                name=action,
+                description=description,
+                deprecated=deprecated,
+                replaced_by=replaced_by,
+            )
+
+        # Validate replacement references
+        for action, metadata in self.actions.items():
+            if metadata.replaced_by and metadata.replaced_by not in self.actions:
+                raise RBACPolicyDefinitionLoadError(
+                    f"Replacement action {metadata.replaced_by} for {action} not found "
+                    "in policy definition"
+                )
+
+    def apply(self, action: str) -> Set[str]:
+        """Return effective actions for the given action name, handling deprecation.
+
+        Deprecated actions are stripped, a UserWarning is emitted, and a single
+        replacement action (if declared) is added instead. Unknown actions still raise
+        RBACPolicyRolesLoadError.
+        """
+        metadata = self.actions[action]
+        if metadata.deprecated:
+            warning_msg = f"Action {action} is deprecated"
+            if metadata.replaced_by:
+                warning_msg += f"; use {metadata.replaced_by} instead"
+            warnings.warn(warning_msg, UserWarning)
+            if metadata.replaced_by:
+                return self.apply(metadata.replaced_by)
+            return set()
+
+        return {action}
 
 
 class RBACPolicyRolesLoader:
@@ -132,7 +220,7 @@ class RBACPolicyRolesIniLoader(RBACPolicyRolesLoader):
                 members = self._expand_members(self.content.get("roles", role))
             self.roles.add(RBACPolicyRole(role, members, actions))
 
-    def _expand_actions(self, actions_str):
+    def _expand_actions(self, actions_str: str) -> Set[str]:
         """Return the set of actions declared in comma-separated list provided in
         actions_str argument. If an item is prefixed by @, the set is expanded with the
         actions of the role name that follows."""
@@ -145,7 +233,7 @@ class RBACPolicyRolesIniLoader(RBACPolicyRolesLoader):
                     raise RBACPolicyRolesLoadError(
                         f"Action {action} not found in policy definition"
                     )
-                actions.add(action)
+                actions.update(self.definition.apply(action))
         return actions
 
     def _expand_members(self, members_str):
