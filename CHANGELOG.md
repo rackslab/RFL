@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+- perms: Support deprecation of actions with optional replacement in
+  authorization policy definition (#64).
+
 ### Fixed
 - auth: Escape user-provided values in LDAP search filters to prevent LDAP
   injection attacks and support values with parenthesis (#63).
