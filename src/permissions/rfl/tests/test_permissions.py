@@ -4,7 +4,9 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
+import textwrap
 import unittest
+import warnings
 
 from rfl.authentication.user import AuthenticatedUser, AnonymousUser
 from rfl.permissions.rbac import (
@@ -24,7 +26,21 @@ actions:
   add-users: Add users to the system
   view-tasks: View all tasks on the system
   launch-tasks: Launch tasks on the system
-  edit-tasks: Edit all submitted tasks
+  edit-tasks:
+    description: Edit all submitted tasks
+"""
+
+DEFINITION_DEPRECATED = """
+actions:
+  old-action:
+    description: Old action
+    deprecated: true
+    replaced_by: new-action
+  old-no-replace:
+    description: Old action without replacement
+    deprecated: true
+  new-action:
+    description: New action
 """
 
 VALID_ROLES = """
@@ -61,7 +77,7 @@ class TestRBACPolicyDefinitionYAMLLoader(unittest.TestCase):
     def test_load_valid_definition(self):
         loader = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
         self.assertEqual(
-            loader.actions,
+            set(loader.actions.keys()),
             {"view-users", "add-users", "view-tasks", "launch-tasks", "edit-tasks"},
         )
 
@@ -84,10 +100,130 @@ class TestRBACPolicyDefinitionYAMLLoader(unittest.TestCase):
         raw_definition = "actions: fail"
         with self.assertRaisesRegex(
             RBACPolicyDefinitionLoadError,
-            r"^Unable to extract the set of actions from actions key in YAML policy "
-            r"definition$",
+            r"^Actions definition must be a mapping of action names to definitions$",
         ):
             RBACPolicyDefinitionYAMLLoader(raw=raw_definition)
+
+    def test_load_missing_description(self):
+        definition = textwrap.dedent("""
+            actions:
+              old-action:
+                deprecated: true
+            """)
+        with self.assertRaisesRegex(
+            RBACPolicyDefinitionLoadError,
+            r"^Description is mandatory for action old-action$",
+        ):
+            RBACPolicyDefinitionYAMLLoader(raw=definition)
+
+    def test_load_invalid_deprecated_not_boolean(self):
+        definition = textwrap.dedent("""
+            actions:
+              old-action:
+                description: Old action
+                deprecated: "true"
+            """)
+        with self.assertRaisesRegex(
+            RBACPolicyDefinitionLoadError,
+            r"^Invalid deprecated value for action old-action$",
+        ):
+            RBACPolicyDefinitionYAMLLoader(raw=definition)
+
+    def test_load_invalid_replaced_by_list(self):
+        definition = textwrap.dedent("""
+            actions:
+              old-action:
+                description: Old action
+                deprecated: true
+                replaced_by:
+                  - a
+                  - b
+            """)
+        with self.assertRaisesRegex(
+            RBACPolicyDefinitionLoadError,
+            r"^Invalid replaced_by value for action old-action$",
+        ):
+            RBACPolicyDefinitionYAMLLoader(raw=definition)
+
+    def test_load_invalid_replaced_by_unknown(self):
+        definition = textwrap.dedent("""
+            actions:
+              old-action:
+                description: Old action
+                deprecated: true
+                replaced_by: missing
+            """)
+        with self.assertRaisesRegex(
+            RBACPolicyDefinitionLoadError,
+            r"^Replacement action missing for old-action not found in policy "
+            r"definition$",
+        ):
+            RBACPolicyDefinitionYAMLLoader(raw=definition)
+
+    def test_load_legacy_string_description(self):
+        loader = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        expected = {
+            "view-users": "View all users information",
+            "add-users": "Add users to the system",
+            "view-tasks": "View all tasks on the system",
+            "launch-tasks": "Launch tasks on the system",
+            "edit-tasks": "Edit all submitted tasks",
+        }
+        self.assertEqual(
+            {action: meta.description for action, meta in loader.actions.items()},
+            expected,
+        )
+
+    def test_apply_non_deprecated_action(self):
+        loader = RBACPolicyDefinitionYAMLLoader(raw=VALID_DEFINITION)
+        result = loader.apply("view-users")
+        self.assertEqual(result, {"view-users"})
+
+    def test_apply_deprecated_action_without_replacement(self):
+        loader = RBACPolicyDefinitionYAMLLoader(raw=DEFINITION_DEPRECATED)
+        with self.assertWarns(UserWarning) as warning:
+            result = loader.apply("old-no-replace")
+        self.assertEqual(result, set())
+        self.assertIn("Action old-no-replace is deprecated", str(warning.warning))
+
+    def test_apply_deprecated_action_with_replacement(self):
+        loader = RBACPolicyDefinitionYAMLLoader(raw=DEFINITION_DEPRECATED)
+        with self.assertWarns(UserWarning) as warning:
+            result = loader.apply("old-action")
+        self.assertEqual(result, {"new-action"})
+        self.assertIn("Action old-action is deprecated", str(warning.warning))
+        self.assertIn("use new-action instead", str(warning.warning))
+
+    def test_apply_deprecated_action_recursive_replacement(self):
+        definition = textwrap.dedent("""
+            actions:
+              old-action:
+                description: Old action
+                deprecated: true
+                replaced_by: intermediate-action
+              intermediate-action:
+                description: Intermediate action
+                deprecated: true
+                replaced_by: final-action
+              final-action:
+                description: Final action
+            """)
+        loader = RBACPolicyDefinitionYAMLLoader(raw=definition)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = loader.apply("old-action")
+        self.assertEqual(result, {"final-action"})
+        # Should warn about both deprecated actions
+        self.assertEqual(len(w), 2, f"Expected 2 warnings, got {len(w)}")
+        warnings_messages = [str(warning.message) for warning in w]
+        self.assertTrue(
+            any("old-action" in msg for msg in warnings_messages),
+            f"Expected warning about old-action in {warnings_messages}",
+        )
+        self.assertTrue(
+            any("intermediate-action" in msg for msg in warnings_messages),
+            f"Expected warning about intermediate-action in {warnings_messages}",
+        )
 
 
 class TestRBACPolicyRolesIniLoader(unittest.TestCase):
@@ -170,6 +306,55 @@ class TestRBACPolicyRolesIniLoader(unittest.TestCase):
             r"^Unable to inherit actions from role fail not found in policy$",
         ):
             loader._load()
+
+    def test_load_roles_deprecated_replaced(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=DEFINITION_DEPRECATED)
+        roles = textwrap.dedent("""
+            [roles]
+            user=ALL
+
+            [user]
+            actions=old-action
+            """)
+        with self.assertWarns(UserWarning):
+            loader = RBACPolicyRolesIniLoader(definition=definition, raw=roles)
+        # old-action stripped, new-action added
+        user_role = next(role for role in loader.roles if role.name == "user")
+        self.assertEqual(user_role.actions, {"new-action"})
+
+    def test_load_roles_deprecated_without_replacement(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=DEFINITION_DEPRECATED)
+        roles = textwrap.dedent("""
+            [roles]
+            user=ALL
+
+            [user]
+            actions=old-no-replace
+            """)
+        with self.assertWarns(UserWarning):
+            loader = RBACPolicyRolesIniLoader(definition=definition, raw=roles)
+        user_role = next(role for role in loader.roles if role.name == "user")
+        self.assertEqual(user_role.actions, set())
+
+    def test_load_roles_inheritance_with_deprecated(self):
+        definition = RBACPolicyDefinitionYAMLLoader(raw=DEFINITION_DEPRECATED)
+        roles = textwrap.dedent("""
+            [roles]
+            base=ALL
+            user=ALL
+
+            [base]
+            actions=old-action
+
+            [user]
+            actions=@base
+            """)
+        with self.assertWarns(UserWarning):
+            loader = RBACPolicyRolesIniLoader(definition=definition, raw=roles)
+        base_role = next(role for role in loader.roles if role.name == "base")
+        user_role = next(role for role in loader.roles if role.name == "user")
+        self.assertEqual(base_role.actions, {"new-action"})
+        self.assertEqual(user_role.actions, {"new-action"})
 
 
 class TestRBACPolicyManager(unittest.TestCase):
