@@ -12,6 +12,10 @@ and this project adheres to
 - perms: Support deprecation of actions with optional replacement in
   authorization policy definition (#64).
 
+### Changed
+- build: Make tool > setuptools section optional in `pyproject.toml` loaded by
+  `setup.py` wrapper.
+
 ### Fixed
 - auth: Escape user-provided values in LDAP search filters to prevent LDAP
   injection attacks and support values with parenthesis (#63).
