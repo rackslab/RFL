@@ -12,23 +12,3 @@ requires-python = ">=3.6"
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F"]
-
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-isolated_build = true
-env_list = py{37,38,39,310,311,312}
-skip_missing_interpreters = true
-
-[testenv]
-description = install pytest in a virtual environment and invoke it on the tests folder
-deps =
-  pytest
-  pytest-sugar
-commands_pre =
-  pip install src/core src/authentication src/build src/log src/permissions src/settings src/web
-# --import-mode=importlib is required to import all packages in namespace
-# properly.
-commands =
-  pytest --import-mode=importlib {posargs}
-"""
