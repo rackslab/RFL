@@ -15,6 +15,7 @@ and this project adheres to
 ### Fixed
 - auth: Escape user-provided values in LDAP search filters to prevent LDAP
   injection attacks and support values with parenthesis (#63).
+- log: Strict Python 3.6 compatibility in subprocess.Popen() call (#67).
 
 ## [1.6.0] - 2025-10-10
 

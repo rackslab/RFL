@@ -153,7 +153,7 @@ class AutoPager:
             stdin=self._pipe_read,
             stdout=self._original_stdout,
             stderr=self._original_stderr,
-            text=True,
+            universal_newlines=True,
             env=pager_env,
         )
 
