@@ -6,11 +6,18 @@
 
 import unittest
 from unittest import mock
-import os
-import sys
 import logging
+import os
+import pty
+import shutil
+import sys
 
 from rfl.log.pager import AutoPager, PagerError, enable_auto_paging
+
+
+def _pager_integration_supported():
+    """True when real subprocess + TTY integration checks can run."""
+    return shutil.which("cat") is not None
 
 
 class TestAutoPagerInit(unittest.TestCase):
@@ -548,3 +555,60 @@ class TestAutoPagerLoggingHandlers(unittest.TestCase):
         # Handler should be restored to original stream
         self.assertEqual(handler.stream, self.original_stdout)
         self.assertEqual(len(pager._logging_handlers_original_streams), 0)
+
+
+@unittest.skipUnless(
+    _pager_integration_supported(),
+    "requires cat(1) in PATH",
+)
+class TestAutoPagerIntegration(unittest.TestCase):
+    """Exercise AutoPager with a real subprocess (no Popen mocking)."""
+
+    def setUp(self):
+        self._saved_stdout = sys.stdout
+        self._saved_stderr = sys.stderr
+        self._prev_no_pager = os.environ.pop("NO_PAGER", None)
+        self._master_fd = None
+        self._slave_tty = None
+
+    def tearDown(self):
+        sys.stdout = self._saved_stdout
+        sys.stderr = self._saved_stderr
+        if self._prev_no_pager is not None:
+            os.environ["NO_PAGER"] = self._prev_no_pager
+        if self._slave_tty is not None:
+            try:
+                self._slave_tty.close()
+            except OSError:
+                pass
+        if self._master_fd is not None:
+            try:
+                os.close(self._master_fd)
+            except OSError:
+                pass
+
+    def test_real_cat_start_stop(self):
+        master_fd, slave_fd = pty.openpty()
+        self._master_fd = master_fd
+        slave_tty = os.fdopen(slave_fd, "w", buffering=1)
+        self._slave_tty = slave_tty
+        sys.stdout = slave_tty
+        sys.stderr = slave_tty
+
+        pager = AutoPager(pager="cat")
+        self.assertTrue(slave_tty.isatty())
+
+        pager.start()
+
+        self.assertIsNotNone(pager._pager_process)
+        proc = pager._pager_process
+        self.assertIsNone(proc.poll())
+
+        sys.stdout.write("rfl-pager-integration\n")
+        sys.stdout.flush()
+
+        pager.stop()
+
+        self.assertEqual(proc.poll(), 0)
+        self.assertIs(sys.stdout, slave_tty)
+        self.assertTrue(sys.stdout.isatty())
