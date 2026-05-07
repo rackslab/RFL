@@ -8,6 +8,18 @@ version = "1.6.0"
 description = "Rackslab Foundation Library"
 license = "LGPL-3.0-or-later"
 requires-python = ">=3.6"
+authors = [
+    {name = "Rémi Palancher", email = "remi@rackslab.io"},
+]
+
+[project.optional-dependencies]
+tests = [
+    "Flask",
+    "PyJWT",
+    "pytest",
+    "python-ldap",
+    "PyYAML",
+]
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
