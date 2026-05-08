@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [1.7.0] - 2026-05-08
 
 ### Added
 - perms: Support deprecation of actions with optional replacement in
@@ -183,7 +183,8 @@ and this project adheres to
 
 ## [1.0.0] - 2024-04-08
 
-[unreleased]: https://github.com/rackslab/RFL/compare/v1.6.0...HEAD
+[unreleased]: https://github.com/rackslab/RFL/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/rackslab/RFL/releases/tag/v1.7.0
 [1.6.0]: https://github.com/rackslab/RFL/releases/tag/v1.6.0
 [1.5.0]: https://github.com/rackslab/RFL/releases/tag/v1.5.0
 [1.4.0]: https://github.com/rackslab/RFL/releases/tag/v1.4.0
