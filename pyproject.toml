@@ -15,7 +15,6 @@ authors = [
 [project.optional-dependencies]
 tests = [
     "Authlib",
-    "joserfc",
     "Flask",
     "PyJWT",
     "pytest",
