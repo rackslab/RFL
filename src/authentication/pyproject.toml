@@ -26,6 +26,9 @@ classifiers = [
 ]
 readme = "README.md"
 
+[project.optional-dependencies]
+oidc = ["Authlib", "Flask", "requests"]
+
 [project.urls]
 "Homepage" = "https://github.com/rackslab/RFL"
 "Bug Tracker" = "https://github.com/rackslab/RFL/issues"

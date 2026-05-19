@@ -14,11 +14,13 @@ authors = [
 
 [project.optional-dependencies]
 tests = [
+    "Authlib",
     "Flask",
     "PyJWT",
     "pytest",
     "python-ldap",
     "PyYAML",
+    "requests",
 ]
 
 [tool.pytest.ini_options]
