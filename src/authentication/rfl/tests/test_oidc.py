@@ -26,7 +26,16 @@ class TestOIDCAuthentifier(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._signing_key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
-        public = cls._signing_key.as_dict(is_private=False)
+        try:
+            public = cls._signing_key.as_dict(is_private=False)
+        except TypeError:
+            # authlib 0.15.x (e.g. Ubuntu Jammy python3-authlib): as_dict() only
+            # accepts add_kid; drop RSA private fields to build the public JWK.
+            public = {
+                k: v
+                for k, v in cls._signing_key.as_dict().items()
+                if k not in {"d", "p", "q", "dp", "dq", "qi", "oth"}
+            }
         public["kid"] = "test-key"
         cls._jwks = {"keys": [public]}
 
