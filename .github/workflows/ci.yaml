@@ -41,7 +41,7 @@ jobs:
 
       - name: Install application
         run: |
-          pip install src/core src/authentication src/build src/log src/permissions src/settings src/web
+          pip install src/core "src/authentication[oidc]" src/build src/log src/permissions src/settings src/web
 
       - name: Run tests
         run: pytest --import-mode=importlib
@@ -87,6 +87,10 @@ jobs:
             python3-pytest \
             python3-PyYAML \
             python3-tomli
+
+      - name: Install OIDC dependencies (not supported on el8)
+        if: ${{ matrix.envs.container != 'rockylinux/rockylinux:8' }}
+        run: dnf -y install python3-authlib python3-requests
 
       # Unfortunately, pip and setuptools in RHEL8 do not fully support
       # PEP517 pyproject.toml. As a workaround for this version, the setup.py
@@ -146,11 +150,13 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt update
           apt install -y \
+            python3-authlib \
             python3-flask \
             python3-jwt \
             python3-ldap \
             python3-pip \
             python3-pytest \
+            python3-requests \
             python3-tomli \
             python3-yaml \
             python3-venv
