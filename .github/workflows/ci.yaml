@@ -41,7 +41,7 @@ jobs:
 
       - name: Install application
         run: |
-          pip install src/core src/authentication src/build src/log src/permissions src/settings src/web
+          pip install src/core "src/authentication[oidc]" src/build src/log src/permissions src/settings src/web
 
       - name: Run tests
         run: pytest --import-mode=importlib
@@ -88,6 +88,10 @@ jobs:
             python3-PyYAML \
             python3-tomli
 
+      - name: Install OIDC dependencies (not supported on el8)
+        if: ${{ matrix.envs.container != 'rockylinux/rockylinux:8' }}
+        run: dnf -y install python3-authlib python3-requests
+
       # Unfortunately, pip and setuptools in RHEL8 do not fully support
       # PEP517 pyproject.toml. As a workaround for this version, the setup.py
       # script provided by RFL.build package is copied and executed.
@@ -103,7 +107,7 @@ jobs:
           cp src/build/rfl/build/scripts/setup src/web/setup.py
 
       - name: Install application
-        run: PIP=pip3 bash install.sh
+        run: NODEPS=1 PIP=pip3 bash install.sh
 
       # Unfortunately, pytest on rocky8 does not support
       # --import-mode=importlib. On this old version, explicitely test all
@@ -146,11 +150,13 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt update
           apt install -y \
+            python3-authlib \
             python3-flask \
             python3-jwt \
             python3-ldap \
             python3-pip \
             python3-pytest \
+            python3-requests \
             python3-tomli \
             python3-yaml \
             python3-venv
@@ -172,7 +178,7 @@ jobs:
       - name: Install application
         run: |
           python3 -m venv --system-site-packages ~/venv
-          EDITABLE=1 PIP=~/venv/bin/pip bash install.sh
+          NODEPS=1 EDITABLE=1 PIP=~/venv/bin/pip bash install.sh
 
       - name: Run tests
         run: ~/venv/bin/python3 -m pytest --import-mode=importlib

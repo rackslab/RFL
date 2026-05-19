@@ -15,6 +15,10 @@ class LDAPAuthenticationError(AuthenticationError):
     pass
 
 
+class OIDCAuthenticationError(AuthenticationError):
+    pass
+
+
 class JWTError(AuthenticationError):
     pass
 
