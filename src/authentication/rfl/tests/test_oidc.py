@@ -10,8 +10,9 @@ from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 try:
-    from authlib.jose import JsonWebKey, jwt
+    from authlib.oidc.core.util import create_half_hash
 
+    from rfl.authentication import oidc as oidc_mod
     from rfl.authentication.errors import OIDCAuthenticationError
     from rfl.authentication.oidc import AuthorizationRequest, OIDCAuthentifier
     from rfl.authentication.user import AuthenticatedUser
@@ -25,17 +26,25 @@ else:
 class TestOIDCAuthentifier(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._signing_key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
-        try:
-            public = cls._signing_key.as_dict(is_private=False)
-        except TypeError:
-            # authlib 0.15.x (e.g. Ubuntu Jammy python3-authlib): as_dict() only
-            # accepts add_kid; drop RSA private fields to build the public JWK.
-            public = {
-                k: v
-                for k, v in cls._signing_key.as_dict().items()
-                if k not in {"d", "p", "q", "dp", "dq", "qi", "oth"}
-            }
+        if oidc_mod._JWT_BACKEND == "joserfc":
+            from joserfc.jwk import RSAKey
+
+            cls._signing_key = RSAKey.generate_key(2048, private=True)
+            public = cls._signing_key.as_dict(private=False)
+        else:
+            from authlib.jose import JsonWebKey
+
+            cls._signing_key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
+            try:
+                public = cls._signing_key.as_dict(is_private=False)
+            except TypeError:
+                # authlib 0.15.x (e.g. Ubuntu Jammy python3-authlib): as_dict() only
+                # accepts add_kid; drop RSA private fields to build the public JWK.
+                public = {
+                    k: v
+                    for k, v in cls._signing_key.as_dict().items()
+                    if k not in {"d", "p", "q", "dp", "dq", "qi", "oth"}
+                }
         public["kid"] = "test-key"
         cls._jwks = {"keys": [public]}
 
@@ -71,7 +80,7 @@ class TestOIDCAuthentifier(unittest.TestCase):
         if extra_claims:
             payload.update(extra_claims)
         header = {"alg": "RS256", "kid": "test-key"}
-        token = jwt.encode(header, payload, self._signing_key)
+        token = oidc_mod.jwt.encode(header, payload, self._signing_key)
         if isinstance(token, bytes):
             return token.decode()
         return token
@@ -80,6 +89,14 @@ class TestOIDCAuthentifier(unittest.TestCase):
         response = MagicMock()
         response.json.return_value = self._jwks
         return response
+
+    def _auth_request(self, nonce: str = "nonce-1") -> AuthorizationRequest:
+        return AuthorizationRequest(
+            url="https://idp.example.com/authorize",
+            state="state-1",
+            code_verifier="verifier",
+            nonce=nonce,
+        )
 
     def test_defaults(self):
         auth = OIDCAuthentifier(
@@ -137,12 +154,7 @@ class TestOIDCAuthentifier(unittest.TestCase):
         }
         mock_session.get.return_value = self._jwks_response()
 
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
+        auth_request = self._auth_request()
         authorization_response = (
             "https://app.example.com/callback?code=auth-code&state=state-1"
         )
@@ -196,12 +208,7 @@ class TestOIDCAuthentifier(unittest.TestCase):
             mock_userinfo_response,
         ]
 
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
+        auth_request = self._auth_request()
         authorization_response = (
             "https://app.example.com/callback?code=auth-code&state=state-1"
         )
@@ -226,15 +233,9 @@ class TestOIDCAuthentifier(unittest.TestCase):
         }
         mock_session.get.return_value = self._jwks_response()
 
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
         user = self.authentifier.complete_authorization(
             "https://app.example.com/callback?code=c&state=state-1",
-            auth_request,
+            self._auth_request(),
         )
         self.assertEqual(user.groups, ["admins"])
 
@@ -249,18 +250,47 @@ class TestOIDCAuthentifier(unittest.TestCase):
         }
         mock_session.get.return_value = self._jwks_response()
 
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
         with self.assertRaises(OIDCAuthenticationError) as ctx:
             self.authentifier.complete_authorization(
                 "https://app.example.com/callback?code=c&state=state-1",
-                auth_request,
+                self._auth_request(),
             )
         self.assertIn("restricted groups", str(ctx.exception))
+
+    @patch("rfl.authentication.oidc.OAuth2Session")
+    def test_complete_authorization_at_hash_valid(self, mock_session_cls):
+        self.authentifier._discovery_metadata = self.metadata
+        mock_session = mock_session_cls.return_value
+        access_token = "access-token-value"
+        at_hash = create_half_hash(access_token, "RS256").decode()
+        mock_session.fetch_token.return_value = {
+            "access_token": access_token,
+            "id_token": self._make_id_token(extra_claims={"at_hash": at_hash}),
+        }
+        mock_session.get.return_value = self._jwks_response()
+
+        user = self.authentifier.complete_authorization(
+            "https://app.example.com/callback?code=c&state=state-1",
+            self._auth_request(),
+        )
+        self.assertEqual(user.login, "alice")
+
+    @patch("rfl.authentication.oidc.OAuth2Session")
+    def test_complete_authorization_at_hash_mismatch(self, mock_session_cls):
+        self.authentifier._discovery_metadata = self.metadata
+        mock_session = mock_session_cls.return_value
+        mock_session.fetch_token.return_value = {
+            "access_token": "access-token-value",
+            "id_token": self._make_id_token(extra_claims={"at_hash": "wrong-hash"}),
+        }
+        mock_session.get.return_value = self._jwks_response()
+
+        with self.assertRaises(OIDCAuthenticationError) as ctx:
+            self.authentifier.complete_authorization(
+                "https://app.example.com/callback?code=c&state=state-1",
+                self._auth_request(),
+            )
+        self.assertIn("id_token", str(ctx.exception))
 
     @patch("rfl.authentication.oidc.jwt")
     @patch("rfl.authentication.oidc.OAuth2Session")
@@ -274,16 +304,10 @@ class TestOIDCAuthentifier(unittest.TestCase):
         mock_session.get.return_value = self._jwks_response()
         mock_jwt.decode.side_effect = ValueError("bad signature")
 
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
         with self.assertRaises(OIDCAuthenticationError) as ctx:
             self.authentifier.complete_authorization(
                 "https://app.example.com/callback?code=c&state=state-1",
-                auth_request,
+                self._auth_request(),
             )
         self.assertIn("id_token", str(ctx.exception))
         mock_jwt.decode.assert_called_once()
@@ -294,16 +318,11 @@ class TestOIDCAuthentifier(unittest.TestCase):
         mock_session_cls.return_value.fetch_token.return_value = {
             "access_token": "access"
         }
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
+
         with self.assertRaises(OIDCAuthenticationError) as ctx:
             self.authentifier.complete_authorization(
                 "https://app.example.com/callback?code=c&state=state-1",
-                auth_request,
+                self._auth_request(),
             )
         self.assertIn("id_token", str(ctx.exception))
 
@@ -317,14 +336,8 @@ class TestOIDCAuthentifier(unittest.TestCase):
         }
         mock_session.get.return_value = self._jwks_response()
 
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
         user = self.authentifier.complete_authorization(
             "https://app.example.com/callback?code=c&state=state-1",
-            auth_request,
+            self._auth_request(),
         )
         self.assertEqual(user.groups, ["users"])
