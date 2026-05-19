@@ -4,17 +4,20 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-import time
 import unittest
-from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
-try:
-    from authlib.oidc.core.util import create_half_hash
+import flask
 
-    from rfl.authentication import oidc as oidc_mod
+try:
+    from authlib.integrations.base_client import OAuthError
+
     from rfl.authentication.errors import OIDCAuthenticationError
-    from rfl.authentication.oidc import AuthorizationRequest, OIDCAuthentifier
+    from rfl.authentication.oidc import (
+        OIDCClient,
+        OAuthError as RFL_OAuthError,
+        token_update,
+    )
     from rfl.authentication.user import AuthenticatedUser
 except ImportError:
     AUTHLIB_AVAILABLE = False
@@ -23,321 +26,217 @@ else:
 
 
 @unittest.skipUnless(AUTHLIB_AVAILABLE, "authlib is not installed")
-class TestOIDCAuthentifier(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        if oidc_mod._JWT_BACKEND == "joserfc":
-            from joserfc.jwk import RSAKey
-
-            cls._signing_key = RSAKey.generate_key(2048, private=True)
-            public = cls._signing_key.as_dict(private=False)
-        else:
-            from authlib.jose import JsonWebKey
-
-            cls._signing_key = JsonWebKey.generate_key("RSA", 2048, is_private=True)
-            try:
-                public = cls._signing_key.as_dict(is_private=False)
-            except TypeError:
-                # authlib 0.15.x (e.g. Ubuntu Jammy python3-authlib): as_dict() only
-                # accepts add_kid; drop RSA private fields to build the public JWK.
-                public = {
-                    k: v
-                    for k, v in cls._signing_key.as_dict().items()
-                    if k not in {"d", "p", "q", "dp", "dq", "qi", "oth"}
-                }
-        public["kid"] = "test-key"
-        cls._jwks = {"keys": [public]}
-
+class TestOIDCClient(unittest.TestCase):
     def setUp(self):
-        self.authentifier = OIDCAuthentifier(
-            issuer="https://idp.example.com",
+        self.app = flask.Flask(__name__)
+        self.app.secret_key = "test-secret"
+
+    def _make_client(self, **kwargs):
+        defaults = {
+            "issuer": "https://idp.example.com",
+            "client_id": "client-id",
+            "client_secret": "client-secret",
+            "redirect_uri": "https://app.example.com/callback",
+        }
+        defaults.update(kwargs)
+        with self.app.app_context():
+            return OIDCClient(self.app, **defaults)
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_init_registers_client(self, mock_oauth_cls):
+        mock_oauth = mock_oauth_cls.return_value
+        mock_client = MagicMock()
+        mock_oauth.register.return_value = mock_client
+
+        client = self._make_client(scope="openid email", cacert="/etc/ssl/ca.pem")
+
+        mock_oauth_cls.assert_called_once_with(
+            self.app,
+            cache=None,
+            fetch_token=None,
+            update_token=None,
+        )
+        mock_oauth.register.assert_called_once_with(
+            "rfl_oidc",
             client_id="client-id",
             client_secret="client-secret",
+            server_metadata_url="https://idp.example.com/.well-known/openid-configuration",
+            client_kwargs={
+                "scope": "openid email",
+                "verify": "/etc/ssl/ca.pem",
+                "code_challenge_method": "S256",
+            },
+        )
+        self.assertIs(client._client, mock_client)
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_init_without_code_challenge_method(self, mock_oauth_cls):
+        mock_oauth_cls.return_value.register.return_value = MagicMock()
+
+        self._make_client(code_challenge_method=None)
+
+        register_kwargs = mock_oauth_cls.return_value.register.call_args.kwargs
+        self.assertNotIn("code_challenge_method", register_kwargs["client_kwargs"])
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_redirect_uses_default_redirect_uri(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_response = MagicMock()
+        mock_client.authorize_redirect.return_value = mock_response
+
+        client = self._make_client()
+        with self.app.test_request_context():
+            response = client.redirect()
+
+        mock_client.authorize_redirect.assert_called_once_with(
             redirect_uri="https://app.example.com/callback",
         )
-        self.metadata = {
-            "issuer": "https://idp.example.com",
-            "authorization_endpoint": "https://idp.example.com/authorize",
-            "token_endpoint": "https://idp.example.com/token",
-            "jwks_uri": "https://idp.example.com/jwks",
-            "userinfo_endpoint": "https://idp.example.com/userinfo",
+        self.assertIs(response, mock_response)
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_redirect_custom_redirect_uri(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+
+        client = self._make_client()
+        with self.app.test_request_context():
+            client.redirect(redirect_uri="https://other.example/cb")
+
+        mock_client.authorize_redirect.assert_called_once_with(
+            redirect_uri="https://other.example/cb",
+        )
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_returns_authenticated_user(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {
+            "userinfo": {
+                "sub": "alice",
+                "name": "Alice",
+                "groups": ["users", "admins"],
+            },
         }
 
-    def _make_id_token(
-        self,
-        nonce: str = "nonce-1",
-        extra_claims: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        now = int(time.time())
-        payload = {
-            "iss": self.metadata["issuer"],
-            "aud": self.authentifier.client_id,
-            "sub": "alice",
-            "nonce": nonce,
-            "iat": now,
-            "exp": now + 3600,
-        }
-        if extra_claims:
-            payload.update(extra_claims)
-        header = {"alg": "RS256", "kid": "test-key"}
-        token = oidc_mod.jwt.encode(header, payload, self._signing_key)
-        if isinstance(token, bytes):
-            return token.decode()
-        return token
-
-    def _jwks_response(self):
-        response = MagicMock()
-        response.json.return_value = self._jwks
-        return response
-
-    def _auth_request(self, nonce: str = "nonce-1") -> AuthorizationRequest:
-        return AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="state-1",
-            code_verifier="verifier",
-            nonce=nonce,
-        )
-
-    def test_defaults(self):
-        auth = OIDCAuthentifier(
-            issuer="https://idp.example.com",
-            client_id="cid",
-            client_secret="secret",
-            redirect_uri="https://app/cb",
-        )
-        self.assertEqual(auth.scope, "openid profile email")
-        self.assertEqual(auth.subject_claim, "sub")
-        self.assertEqual(auth.fullname_claim, "name")
-        self.assertEqual(auth.groups_claim, "groups")
-        self.assertEqual(auth.code_challenge_method, "S256")
-
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_create_authorization_request(self, mock_session_cls):
-        mock_session = mock_session_cls.return_value
-        mock_session.create_authorization_url.return_value = (
-            "https://idp.example.com/authorize?state=abc",
-            "abc",
-        )
-        self.authentifier._discovery_metadata = self.metadata
-
-        request = self.authentifier.create_authorization_request()
-
-        self.assertIsInstance(request, AuthorizationRequest)
-        self.assertEqual(request.url, "https://idp.example.com/authorize?state=abc")
-        self.assertEqual(request.state, "abc")
-        self.assertIsNotNone(request.code_verifier)
-        self.assertIsNotNone(request.nonce)
-        mock_session.create_authorization_url.assert_called_once()
-        call_kwargs = mock_session.create_authorization_url.call_args[1]
-        self.assertEqual(call_kwargs["redirect_uri"], self.authentifier.redirect_uri)
-        self.assertEqual(call_kwargs["nonce"], request.nonce)
-        self.assertEqual(call_kwargs["code_verifier"], request.code_verifier)
-
-    def test_authorization_response_from_query(self):
-        response = self.authentifier.authorization_response_from_query(
-            {"code": "auth-code", "state": "xyz"}
-        )
-        self.assertEqual(
-            response,
-            "https://app.example.com/callback?code=auth-code&state=xyz",
-        )
-
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access",
-            "id_token": self._make_id_token(
-                extra_claims={"name": "Alice", "groups": ["users"]}
-            ),
-        }
-        mock_session.get.return_value = self._jwks_response()
-
-        auth_request = self._auth_request()
-        authorization_response = (
-            "https://app.example.com/callback?code=auth-code&state=state-1"
-        )
-
-        user = self.authentifier.complete_authorization(
-            authorization_response, auth_request
-        )
+        client = self._make_client()
+        with self.app.test_request_context():
+            user = client.authenticate()
 
         self.assertIsInstance(user, AuthenticatedUser)
         self.assertEqual(user.login, "alice")
         self.assertEqual(user.fullname, "Alice")
-        self.assertEqual(user.groups, ["users"])
-        mock_session.fetch_token.assert_called_once()
-        mock_session.get.assert_called_once_with(self.metadata["jwks_uri"])
+        self.assertEqual(user.groups, ["users", "admins"])
 
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_state_mismatch(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        auth_request = AuthorizationRequest(
-            url="https://idp.example.com/authorize",
-            state="expected",
-            code_verifier="verifier",
-            nonce="nonce-1",
-        )
-        authorization_response = (
-            "https://app.example.com/callback?code=auth-code&state=wrong"
-        )
-
-        with self.assertRaises(OIDCAuthenticationError) as ctx:
-            self.authentifier.complete_authorization(
-                authorization_response, auth_request
-            )
-        self.assertIn("state", str(ctx.exception).lower())
-        mock_session_cls.return_value.fetch_token.assert_not_called()
-
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_userinfo_groups(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access",
-            "id_token": self._make_id_token(
-                extra_claims={"sub": "bob", "name": "Bob"},
-            ),
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_custom_claims(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {
+            "userinfo": {
+                "uid": "bob",
+                "displayName": "Bob",
+                "memberOf": "operators",
+            },
         }
-        mock_userinfo_response = MagicMock()
-        mock_userinfo_response.json.return_value = {"groups": ["admins"]}
-        mock_userinfo_response.raise_for_status = MagicMock()
-        mock_session.get.side_effect = [
-            self._jwks_response(),
-            mock_userinfo_response,
-        ]
 
-        auth_request = self._auth_request()
-        authorization_response = (
-            "https://app.example.com/callback?code=auth-code&state=state-1"
+        client = self._make_client(
+            subject_claim="uid",
+            fullname_claim="displayName",
+            groups_claim="memberOf",
         )
-
-        user = self.authentifier.complete_authorization(
-            authorization_response, auth_request
-        )
+        with self.app.test_request_context():
+            user = client.authenticate()
 
         self.assertEqual(user.login, "bob")
-        self.assertEqual(user.groups, ["admins"])
-        self.assertEqual(mock_session.get.call_count, 2)
-        mock_session.get.assert_any_call(self.metadata["userinfo_endpoint"])
+        self.assertEqual(user.fullname, "Bob")
+        self.assertEqual(user.groups, ["operators"])
 
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_restricted_groups_allowed(self, mock_session_cls):
-        self.authentifier.restricted_groups = ["admins"]
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access",
-            "id_token": self._make_id_token(extra_claims={"groups": ["admins"]}),
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_missing_userinfo(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {"access_token": "tok"}
+
+        client = self._make_client()
+        with self.app.test_request_context():
+            with self.assertRaises(OIDCAuthenticationError) as ctx:
+                client.authenticate()
+
+        self.assertIn("userinfo", str(ctx.exception))
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_missing_subject(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {
+            "userinfo": {"name": "Alice"},
         }
-        mock_session.get.return_value = self._jwks_response()
 
-        user = self.authentifier.complete_authorization(
-            "https://app.example.com/callback?code=c&state=state-1",
-            self._auth_request(),
-        )
-        self.assertEqual(user.groups, ["admins"])
+        client = self._make_client()
+        with self.app.test_request_context():
+            with self.assertRaises(OIDCAuthenticationError) as ctx:
+                client.authenticate()
 
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_restricted_groups_rejected(self, mock_session_cls):
-        self.authentifier.restricted_groups = ["admins"]
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access",
-            "id_token": self._make_id_token(extra_claims={"groups": ["users"]}),
+        self.assertIn("sub", str(ctx.exception))
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_groups_claim_disabled(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {
+            "userinfo": {"sub": "alice", "groups": ["admins"]},
         }
-        mock_session.get.return_value = self._jwks_response()
 
-        with self.assertRaises(OIDCAuthenticationError) as ctx:
-            self.authentifier.complete_authorization(
-                "https://app.example.com/callback?code=c&state=state-1",
-                self._auth_request(),
-            )
-        self.assertIn("restricted groups", str(ctx.exception))
+        client = self._make_client(groups_claim=None)
+        with self.app.test_request_context():
+            user = client.authenticate()
 
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_at_hash_valid(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        access_token = "access-token-value"
-        at_hash = create_half_hash(access_token, "RS256").decode()
-        mock_session.fetch_token.return_value = {
-            "access_token": access_token,
-            "id_token": self._make_id_token(extra_claims={"at_hash": at_hash}),
+        self.assertEqual(user.groups, [])
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_restricted_groups_allowed(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {
+            "userinfo": {"sub": "alice", "groups": ["admins", "users"]},
         }
-        mock_session.get.return_value = self._jwks_response()
 
-        user = self.authentifier.complete_authorization(
-            "https://app.example.com/callback?code=c&state=state-1",
-            self._auth_request(),
-        )
+        client = self._make_client(restricted_groups=["admins"])
+        with self.app.test_request_context():
+            user = client.authenticate()
+
         self.assertEqual(user.login, "alice")
 
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_at_hash_mismatch(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access-token-value",
-            "id_token": self._make_id_token(extra_claims={"at_hash": "wrong-hash"}),
-        }
-        mock_session.get.return_value = self._jwks_response()
-
-        with self.assertRaises(OIDCAuthenticationError) as ctx:
-            self.authentifier.complete_authorization(
-                "https://app.example.com/callback?code=c&state=state-1",
-                self._auth_request(),
-            )
-        self.assertIn("id_token", str(ctx.exception))
-
-    @patch("rfl.authentication.oidc.jwt")
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_invalid_id_token(self, mock_session_cls, mock_jwt):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access",
-            "id_token": "not-a-valid-jwt",
-        }
-        mock_session.get.return_value = self._jwks_response()
-        mock_jwt.decode.side_effect = ValueError("bad signature")
-
-        with self.assertRaises(OIDCAuthenticationError) as ctx:
-            self.authentifier.complete_authorization(
-                "https://app.example.com/callback?code=c&state=state-1",
-                self._auth_request(),
-            )
-        self.assertIn("id_token", str(ctx.exception))
-        mock_jwt.decode.assert_called_once()
-
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_complete_authorization_missing_id_token(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session_cls.return_value.fetch_token.return_value = {
-            "access_token": "access"
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_restricted_groups_rejected(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.return_value = {
+            "userinfo": {"sub": "alice", "groups": ["users"]},
         }
 
-        with self.assertRaises(OIDCAuthenticationError) as ctx:
-            self.authentifier.complete_authorization(
-                "https://app.example.com/callback?code=c&state=state-1",
-                self._auth_request(),
-            )
-        self.assertIn("id_token", str(ctx.exception))
+        client = self._make_client(restricted_groups=["admins"])
+        with self.app.test_request_context():
+            with self.assertRaises(OIDCAuthenticationError) as ctx:
+                client.authenticate()
 
-    @patch("rfl.authentication.oidc.OAuth2Session")
-    def test_groups_claim_as_string(self, mock_session_cls):
-        self.authentifier._discovery_metadata = self.metadata
-        mock_session = mock_session_cls.return_value
-        mock_session.fetch_token.return_value = {
-            "access_token": "access",
-            "id_token": self._make_id_token(extra_claims={"groups": "users"}),
-        }
-        mock_session.get.return_value = self._jwks_response()
+        self.assertIn("restricted groups", str(ctx.exception))
 
-        user = self.authentifier.complete_authorization(
-            "https://app.example.com/callback?code=c&state=state-1",
-            self._auth_request(),
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_authenticate_oauth_error_propagates(self, mock_oauth_cls):
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.side_effect = OAuthError(
+            error="access_denied",
+            description="User denied access",
         )
-        self.assertEqual(user.groups, ["users"])
+
+        client = self._make_client()
+        with self.app.test_request_context():
+            with self.assertRaises(OAuthError):
+                client.authenticate()
+
+    def test_reexports(self):
+        self.assertIs(RFL_OAuthError, OAuthError)
+        self.assertIsNotNone(token_update)
