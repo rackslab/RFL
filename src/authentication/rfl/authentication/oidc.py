@@ -7,20 +7,48 @@
 from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Union
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
+import hmac
 import logging
 
 try:
+    from authlib.common.encoding import to_bytes
     from authlib.common.security import generate_token
     from authlib.integrations.requests_client import OAuth2Session
-    from authlib.jose import jwt
-    from authlib.oidc.core import CodeIDToken
+    from authlib.oidc.core.util import create_half_hash
 except ImportError as err:
     raise ImportError("Authlib library is required for RFL OIDC authentifier") from err
+
+try:
+    from joserfc import jwt
+    from joserfc.errors import JoseError
+    from joserfc.jwk import KeySet
+    from joserfc.jwt import JWTClaimsRegistry
+
+    _JWT_BACKEND = "joserfc"
+except ImportError:
+    from authlib.jose import jwt
+    from authlib.oidc.core import CodeIDToken
+
+    _JWT_BACKEND = "authlib"
 
 from .errors import OIDCAuthenticationError
 from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_at_hash(
+    claims: Dict[str, Any],
+    alg: Optional[str],
+    access_token: Optional[str],
+) -> None:
+    """Validate OIDC at_hash when present alongside an access token."""
+    at_hash = claims.get("at_hash")
+    if not at_hash or not access_token:
+        return
+    hash_value = create_half_hash(access_token, alg)
+    if hash_value is None or not hmac.compare_digest(to_bytes(at_hash), hash_value):
+        raise OIDCAuthenticationError("Invalid OIDC id_token: at_hash")
 
 
 class AuthorizationRequest(NamedTuple):
@@ -258,23 +286,79 @@ class OIDCAuthentifier:
             ) from err
 
         issuer = metadata.get("issuer", self.issuer)
-        logger.debug("Validating OIDC id_token (issuer=%s)", issuer)
+        logger.debug(
+            "Validating OIDC id_token (issuer=%s, jwt_backend=%s)",
+            issuer,
+            _JWT_BACKEND,
+        )
         try:
-            claims = jwt.decode(
-                id_token,
-                jwks,
-                claims_cls=CodeIDToken,
-                claims_options={
-                    "iss": {"essential": True, "value": issuer},
-                    "aud": {"essential": True, "value": self.client_id},
-                    "nonce": {"essential": True, "value": nonce},
-                },
-            )
-            claims.validate()
+            if _JWT_BACKEND == "joserfc":
+                claims = self._validate_id_token_joserfc(
+                    id_token, jwks, issuer, nonce, token_response
+                )
+            else:
+                claims = self._validate_id_token_authlib(
+                    id_token, jwks, issuer, nonce, token_response
+                )
+        except OIDCAuthenticationError:
+            raise
         except Exception as err:
             raise OIDCAuthenticationError(f"Invalid OIDC id_token: {err}") from err
 
         logger.debug("OIDC id_token validated successfully")
+        return claims
+
+    def _validate_id_token_joserfc(
+        self,
+        id_token: str,
+        jwks: Dict[str, Any],
+        issuer: str,
+        nonce: str,
+        token_response: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        key_set = KeySet.import_key_set(jwks)
+        token = jwt.decode(id_token, key_set)
+        registry = JWTClaimsRegistry(
+            iss={"essential": True, "value": issuer},
+            aud={"essential": True, "value": self.client_id},
+            nonce={"essential": True, "value": nonce},
+        )
+        try:
+            registry.validate(token.claims)
+            # joserfc JWTClaimsRegistry only validates claims in the payload while
+            # authlib.jose.jwt.decode() validates at_hash via claims_params.
+            _validate_at_hash(
+                token.claims,
+                token.header.get("alg"),
+                token_response.get("access_token"),
+            )
+        except JoseError as err:
+            raise OIDCAuthenticationError(f"Invalid OIDC id_token: {err}") from err
+        return dict(token.claims)
+
+    def _validate_id_token_authlib(
+        self,
+        id_token: str,
+        jwks: Dict[str, Any],
+        issuer: str,
+        nonce: str,
+        token_response: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        claims = jwt.decode(
+            id_token,
+            jwks,
+            claims_cls=CodeIDToken,
+            claims_options={
+                "iss": {"essential": True, "value": issuer},
+                "aud": {"essential": True, "value": self.client_id},
+                "nonce": {"essential": True, "value": nonce},
+            },
+            claims_params={
+                "access_token": token_response.get("access_token"),
+                "client_id": self.client_id,
+            },
+        )
+        claims.validate()
         return dict(claims)
 
     def _merge_userinfo_claims(
