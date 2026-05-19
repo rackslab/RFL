@@ -41,7 +41,7 @@ jobs:
 
       - name: Install application
         run: |
-          pip install src/core src/authentication src/build src/log src/permissions src/settings src/web
+          pip install src/core "src/authentication[oidc]" src/build src/log src/permissions src/settings src/web
 
       - name: Run tests
         run: pytest --import-mode=importlib
@@ -87,6 +87,14 @@ jobs:
             python3-pytest \
             python3-PyYAML \
             python3-tomli
+
+      # el8 and EPEL8 don't ship Authlib, it is only available in more recent
+      # versions. Skip installation on this distribution (along with requests,
+      # soft dependency of Authlib).
+      # OIDC tests are automatically skipped when Authlib is not installed.
+      - name: Install OIDC dependencies
+        if: ${{ matrix.envs.container != 'rockylinux/rockylinux:8' }}
+        run: dnf -y install python3-authlib python3-requests
 
       # pip and setuptools on Rocky Linux 8 do not fully support PEP 517 builds from
       # pyproject.toml; enable PEP517_SETUP_WRAPPER on this distribution only.
@@ -136,11 +144,13 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt update
           apt install -y \
+            python3-authlib \
             python3-flask \
             python3-jwt \
             python3-ldap \
             python3-pip \
             python3-pytest \
+            python3-requests \
             python3-tomli \
             python3-yaml \
             python3-venv
@@ -190,6 +200,14 @@ jobs:
             python3-ldap \
             python3-PyYAML \
             python3-tomli
+
+      # openSUSE Leap 15 doesn't ship Authlib, it is only available in more
+      # recent versions. Skip installation on this distribution (along with
+      # requests, soft dependency of Authlib).
+      # OIDC tests are automatically skipped when Authlib is not installed.
+      - name: Install OIDC dependencies
+        if: ${{ matrix.envs.container != 'opensuse/leap:15' }}
+        run: zypper -n in python3-Authlib python3-requests
 
       # Leap 15 ships Python 3.6; wheel is required for pip builds.
       - name: Install python3-wheel (Leap 15)
