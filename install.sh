@@ -4,11 +4,11 @@
 
 function install {
     PKG=$1
-    if [ -z $EDITABLE ]; then
-    	${PIP} install src/${PKG}
-    else
-    	${PIP} install -e src/${PKG}
+    PIP_ARGS=()
+    if [ -n "$NODEPS" ]; then
+        PIP_ARGS+=(--no-deps)
     fi
+    ${PIP} install "${PIP_ARGS[@]}" ${EDITABLE:+-e} "src/${PKG}"
 }
 
 # First install core package as it is a dependency for other packages.
