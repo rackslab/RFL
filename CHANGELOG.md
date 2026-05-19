@@ -13,6 +13,8 @@ and this project adheres to
   `rfl.build.testing.params` as alternative to parameterized library (#75).
 - settings: Support optional section-level documentation via `_doc` in settings
   definition (#80).
+- auth: Add `OIDCAuthentifier` for OpenID Connect Authorization Code flow with
+  authlib (#76).
 
 ## [1.7.0] - 2026-05-08
 
