@@ -170,6 +170,12 @@ jobs:
     container:
       image: ${{ matrix.envs.container }}
     steps:
+      # Minimal openSUSE Leap 15 image does not ship tar/gzip; actions/checkout
+      # needs them to extract the downloaded repository archive (.tar.gz).
+      - name: Install checkout dependencies (Leap 15)
+        if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
+        run: zypper -n ref && zypper -n in tar gzip
+
       - uses: actions/checkout@v4
 
       - name: Install tests dependencies
