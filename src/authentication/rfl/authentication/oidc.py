@@ -103,14 +103,22 @@ class OIDCClient:
 
     def redirect(self, redirect_uri=None, **kwargs):
         """Create HTTP redirect to the OIDC authorization endpoint."""
-        return self._client.authorize_redirect(
-            redirect_uri=redirect_uri or self.redirect_uri,
-            **kwargs,
-        )
+        try:
+            return self._client.authorize_redirect(
+                redirect_uri=redirect_uri or self.redirect_uri,
+                **kwargs,
+            )
+        except OAuthError as err:
+            raise OIDCAuthenticationError(
+                f"OIDC authorization redirect failed: {err}"
+            ) from err
 
     def authenticate(self, **kwargs) -> AuthenticatedUser:
         """Complete the authorization code flow and return an AuthenticatedUser."""
-        token = self._client.authorize_access_token(**kwargs)
+        try:
+            token = self._client.authorize_access_token(**kwargs)
+        except OAuthError as err:
+            raise OIDCAuthenticationError(f"OIDC authorization failed: {err}") from err
         user = self._user_from_token(token)
         if not self._allowed_groups(user.groups):
             raise OIDCAuthenticationError(
