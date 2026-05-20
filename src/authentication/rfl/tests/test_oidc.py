@@ -64,19 +64,69 @@ class TestOIDCClient(unittest.TestCase):
             client_kwargs={
                 "scope": "openid email",
                 "verify": "/etc/ssl/ca.pem",
-                "code_challenge_method": "S256",
             },
         )
         self.assertIs(client._client, mock_client)
 
     @patch("rfl.authentication.oidc.OAuth")
-    def test_init_without_code_challenge_method(self, mock_oauth_cls):
+    def test_init_with_pkce(self, mock_oauth_cls):
         mock_oauth_cls.return_value.register.return_value = MagicMock()
 
-        self._make_client(code_challenge_method=None)
+        self._make_client(pkce="S256")
+
+        register_kwargs = mock_oauth_cls.return_value.register.call_args.kwargs
+        self.assertEqual(
+            register_kwargs["client_kwargs"]["code_challenge_method"],
+            "S256",
+        )
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_init_without_pkce(self, mock_oauth_cls):
+        mock_oauth_cls.return_value.register.return_value = MagicMock()
+
+        self._make_client()
 
         register_kwargs = mock_oauth_cls.return_value.register.call_args.kwargs
         self.assertNotIn("code_challenge_method", register_kwargs["client_kwargs"])
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_init_public_client(self, mock_oauth_cls):
+        mock_oauth_cls.return_value.register.return_value = MagicMock()
+
+        client = self._make_client(client_secret=None, pkce="S256")
+
+        mock_oauth_cls.return_value.register.assert_called_once_with(
+            "rfl_oidc",
+            client_id="client-id",
+            client_secret=None,
+            server_metadata_url="https://idp.example.com/.well-known/openid-configuration",
+            client_kwargs={
+                "scope": "openid profile email",
+                "verify": True,
+                "code_challenge_method": "S256",
+            },
+        )
+        self.assertIsNone(client.client_secret)
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_init_public_client_empty_secret(self, mock_oauth_cls):
+        mock_oauth_cls.return_value.register.return_value = MagicMock()
+
+        client = self._make_client(client_secret="", pkce="S256")
+
+        register_kwargs = mock_oauth_cls.return_value.register.call_args.kwargs
+        self.assertIsNone(register_kwargs["client_secret"])
+        self.assertIsNone(client.client_secret)
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_init_public_client_requires_pkce(self, mock_oauth_cls):
+        with self.assertRaisesRegex(
+            OIDCAuthenticationError,
+            "PKCE is required for public OIDC clients",
+        ):
+            self._make_client(client_secret=None, pkce=None)
+
+        mock_oauth_cls.return_value.register.assert_not_called()
 
     @patch("rfl.authentication.oidc.OAuth")
     def test_redirect_uses_default_redirect_uri(self, mock_oauth_cls):
@@ -160,10 +210,11 @@ class TestOIDCClient(unittest.TestCase):
 
         client = self._make_client()
         with self.app.test_request_context():
-            with self.assertRaises(OIDCAuthenticationError) as ctx:
+            with self.assertRaisesRegex(
+                OIDCAuthenticationError,
+                "validated userinfo",
+            ):
                 client.authenticate()
-
-        self.assertIn("userinfo", str(ctx.exception))
 
     @patch("rfl.authentication.oidc.OAuth")
     def test_authenticate_missing_subject(self, mock_oauth_cls):
@@ -175,10 +226,11 @@ class TestOIDCClient(unittest.TestCase):
 
         client = self._make_client()
         with self.app.test_request_context():
-            with self.assertRaises(OIDCAuthenticationError) as ctx:
+            with self.assertRaisesRegex(
+                OIDCAuthenticationError,
+                r"subject claim sub",
+            ):
                 client.authenticate()
-
-        self.assertIn("sub", str(ctx.exception))
 
     @patch("rfl.authentication.oidc.OAuth")
     def test_authenticate_groups_claim_disabled(self, mock_oauth_cls):
@@ -218,10 +270,11 @@ class TestOIDCClient(unittest.TestCase):
 
         client = self._make_client(restricted_groups=["admins"])
         with self.app.test_request_context():
-            with self.assertRaises(OIDCAuthenticationError) as ctx:
+            with self.assertRaisesRegex(
+                OIDCAuthenticationError,
+                r"alice.*restricted groups",
+            ):
                 client.authenticate()
-
-        self.assertIn("restricted groups", str(ctx.exception))
 
     @patch("rfl.authentication.oidc.OAuth")
     def test_authenticate_oauth_error_propagates(self, mock_oauth_cls):
@@ -234,7 +287,7 @@ class TestOIDCClient(unittest.TestCase):
 
         client = self._make_client()
         with self.app.test_request_context():
-            with self.assertRaises(OAuthError):
+            with self.assertRaisesRegex(OAuthError, "access_denied"):
                 client.authenticate()
 
     def test_reexports(self):
