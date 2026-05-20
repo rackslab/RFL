@@ -10,7 +10,7 @@ import logging
 
 try:
     from authlib.integrations.base_client import OAuthError
-    from authlib.integrations.flask_client import OAuth, token_update
+    from authlib.integrations.flask_client import OAuth
 except ImportError as err:
     raise ImportError("Authlib is required for RFL OIDC Authentication") from err
 
@@ -19,17 +19,11 @@ from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
-_OIDC_CLIENT_NAME = "rfl_oidc"
-
-__all__ = [
-    "OIDCClient",
-    "OAuthError",
-    "token_update",
-]
-
 
 class OIDCClient:
     """OpenID Connect client for Flask apps using Authlib's Flask integration."""
+
+    _OIDC_CLIENT_NAME = "rfl_oidc"
 
     def __init__(
         self,
@@ -80,7 +74,7 @@ class OIDCClient:
             update_token=update_token,
         )
         self._client = oauth.register(
-            _OIDC_CLIENT_NAME,
+            self._OIDC_CLIENT_NAME,
             client_id=client_id,
             client_secret=secret,
             server_metadata_url=metadata_url,
