@@ -19,9 +19,9 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -68,7 +68,7 @@ jobs:
     container:
       image: ${{ matrix.envs.container }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Enable EPEL repository (Rocky Linux)
         if: ${{ startsWith(matrix.envs.container, 'rockylinux') }}
@@ -129,7 +129,7 @@ jobs:
     container:
       image: ${{ matrix.envs.container }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install tests dependencies
         run: |
@@ -176,7 +176,7 @@ jobs:
         if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
         run: zypper -n ref && zypper -n in tar gzip
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install tests dependencies
         run: |
