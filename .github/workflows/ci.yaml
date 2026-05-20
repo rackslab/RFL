@@ -88,21 +88,11 @@ jobs:
             python3-PyYAML \
             python3-tomli
 
-      # Unfortunately, pip and setuptools in RHEL8 do not fully support
-      # PEP517 pyproject.toml. As a workaround for this version, the setup.py
-      # script provided by RFL.build package is copied and executed.
-      - name: Install RFL.build setup wrapper (Rocky Linux 8)
-        if: ${{ matrix.envs.container == 'rockylinux/rockylinux:8' }}
-        run: |
-          cp src/build/rfl/build/scripts/setup src/core/setup.py
-          cp src/build/rfl/build/scripts/setup src/authentication/setup.py
-          cp src/build/rfl/build/scripts/setup src/build/setup.py
-          cp src/build/rfl/build/scripts/setup src/log/setup.py
-          cp src/build/rfl/build/scripts/setup src/permissions/setup.py
-          cp src/build/rfl/build/scripts/setup src/settings/setup.py
-          cp src/build/rfl/build/scripts/setup src/web/setup.py
-
+      # pip and setuptools on Rocky Linux 8 do not fully support PEP 517 builds from
+      # pyproject.toml; enable PEP517_SETUP_WRAPPER on this distribution only.
       - name: Install application
+        env:
+          PEP517_SETUP_WRAPPER: ${{ matrix.envs.container == 'rockylinux/rockylinux:8' && '1' || '' }}
         run: NODEPS=1 PIP=pip3 bash install.sh
 
       # Unfortunately, pytest on rocky8 does not support
@@ -155,21 +145,11 @@ jobs:
             python3-yaml \
             python3-venv
 
-      # Unfortunately, pip and setuptools in Ubuntu jammy do not fully support
-      # PEP517 pyproject.toml. As a workaround for this version, the setup.py
-      # script provided by RFL.build package is copied and executed.
-      - name: Install RFL.build setup wrapper (Ubuntu Jammy 22.04)
-        if: ${{ matrix.envs.container == 'ubuntu:jammy' }}
-        run: |
-          cp src/build/rfl/build/scripts/setup src/core/setup.py
-          cp src/build/rfl/build/scripts/setup src/authentication/setup.py
-          cp src/build/rfl/build/scripts/setup src/build/setup.py
-          cp src/build/rfl/build/scripts/setup src/log/setup.py
-          cp src/build/rfl/build/scripts/setup src/permissions/setup.py
-          cp src/build/rfl/build/scripts/setup src/settings/setup.py
-          cp src/build/rfl/build/scripts/setup src/web/setup.py
-
+      # pip and setuptools on Ubuntu Jammy do not fully support PEP 517 builds from
+      # pyproject.toml; enable PEP517_SETUP_WRAPPER on this distribution only.
       - name: Install application
+        env:
+          PEP517_SETUP_WRAPPER: ${{ matrix.envs.container == 'ubuntu:jammy' && '1' || '' }}
         run: |
           python3 -m venv --system-site-packages ~/venv
           NODEPS=1 EDITABLE=1 PIP=~/venv/bin/pip bash install.sh
@@ -205,7 +185,7 @@ jobs:
             python3-PyYAML \
             python3-tomli
 
-      # Leap 15 ships Python 3.6; wheel is required for pip builds with setup.py.
+      # Leap 15 ships Python 3.6; wheel is required for pip builds.
       - name: Install python3-wheel (Leap 15)
         if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
         run: zypper -n in python3-wheel
@@ -213,20 +193,11 @@ jobs:
       - name: Create virtual environment
         run: python3 -m venv --system-site-packages ~/venv
 
-      # Unfortunately, pip on Leap 15 does not fully support PEP517 pyproject.toml.
-      # As a workaround, the setup.py script provided by RFL.build package is copied.
-      - name: Install RFL.build setup wrapper (Leap 15)
-        if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
-        run: |
-          cp src/build/rfl/build/scripts/setup src/core/setup.py
-          cp src/build/rfl/build/scripts/setup src/authentication/setup.py
-          cp src/build/rfl/build/scripts/setup src/build/setup.py
-          cp src/build/rfl/build/scripts/setup src/log/setup.py
-          cp src/build/rfl/build/scripts/setup src/permissions/setup.py
-          cp src/build/rfl/build/scripts/setup src/settings/setup.py
-          cp src/build/rfl/build/scripts/setup src/web/setup.py
-
+      # pip on openSUSE Leap 15 (Python 3.6) does not fully support PEP 517 builds from
+      # pyproject.toml; enable PEP517_SETUP_WRAPPER on this distribution only.
       - name: Install application
+        env:
+          PEP517_SETUP_WRAPPER: ${{ matrix.envs.container == 'opensuse/leap:15' && '1' || '' }}
         run: NODEPS=1 PIP=~/venv/bin/pip bash install.sh
 
       # Unfortunately, pytest on Leap 15 does not support --import-mode=importlib.
