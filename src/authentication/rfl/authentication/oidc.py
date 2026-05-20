@@ -37,8 +37,8 @@ class OIDCClient:
         *,
         issuer: str,
         client_id: str,
-        client_secret: str,
         redirect_uri: str,
+        client_secret: Optional[str] = None,
         scope: str = "openid profile email",
         subject_claim: str = "sub",
         fullname_claim: str = "name",
@@ -46,14 +46,15 @@ class OIDCClient:
         restricted_groups: Optional[List[str]] = None,
         verify_ssl: bool = True,
         cacert: Optional[Path] = None,
-        code_challenge_method: Optional[str] = "S256",
+        pkce: Optional[str] = None,
         fetch_token=None,
         update_token=None,
         cache=None,
     ):
         self.issuer = issuer.rstrip("/")
         self.client_id = client_id
-        self.client_secret = client_secret
+        secret = client_secret if client_secret else None
+        self.client_secret = secret
         self.redirect_uri = redirect_uri
         self.scope = scope
         self.subject_claim = subject_claim
@@ -61,12 +62,15 @@ class OIDCClient:
         self.groups_claim = groups_claim
         self.restricted_groups = restricted_groups
 
+        if secret is None and pkce is None:
+            raise OIDCAuthenticationError("PKCE is required for public OIDC clients")
+
         client_kwargs: Dict[str, Any] = {
             "scope": scope,
             "verify": self._verify(verify_ssl, cacert),
         }
-        if code_challenge_method is not None:
-            client_kwargs["code_challenge_method"] = code_challenge_method
+        if pkce is not None:
+            client_kwargs["code_challenge_method"] = pkce
 
         metadata_url = f"{self.issuer}/.well-known/openid-configuration"
         oauth = OAuth(
@@ -78,12 +82,14 @@ class OIDCClient:
         self._client = oauth.register(
             _OIDC_CLIENT_NAME,
             client_id=client_id,
-            client_secret=client_secret,
+            client_secret=secret,
             server_metadata_url=metadata_url,
             client_kwargs=client_kwargs,
         )
+        client_type = "public" if secret is None else "confidential"
         logger.debug(
-            "Initialized OIDC client for issuer %s (client_id=%s, redirect_uri=%s)",
+            "Initialized %s OIDC client for issuer %s (client_id=%s, redirect_uri=%s)",
+            client_type,
             self.issuer,
             self.client_id,
             self.redirect_uri,
