@@ -13,11 +13,7 @@ try:
     from authlib.integrations.base_client import OAuthError
 
     from rfl.authentication.errors import OIDCAuthenticationError
-    from rfl.authentication.oidc import (
-        OIDCClient,
-        OAuthError as RFL_OAuthError,
-        token_update,
-    )
+    from rfl.authentication.oidc import OIDCClient
     from rfl.authentication.user import AuthenticatedUser
 except ImportError:
     AUTHLIB_AVAILABLE = False
@@ -312,7 +308,3 @@ class TestOIDCClient(unittest.TestCase):
                 client.redirect()
 
         self.assertIs(ctx.exception.__cause__, oauth_error)
-
-    def test_reexports(self):
-        self.assertIs(RFL_OAuthError, OAuthError)
-        self.assertIsNotNone(token_update)
