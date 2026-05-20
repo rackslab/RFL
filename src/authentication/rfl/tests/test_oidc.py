@@ -277,18 +277,41 @@ class TestOIDCClient(unittest.TestCase):
                 client.authenticate()
 
     @patch("rfl.authentication.oidc.OAuth")
-    def test_authenticate_oauth_error_propagates(self, mock_oauth_cls):
-        mock_client = MagicMock()
-        mock_oauth_cls.return_value.register.return_value = mock_client
-        mock_client.authorize_access_token.side_effect = OAuthError(
+    def test_authenticate_oauth_error_translated(self, mock_oauth_cls):
+        oauth_error = OAuthError(
             error="access_denied",
             description="User denied access",
         )
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_access_token.side_effect = oauth_error
 
         client = self._make_client()
         with self.app.test_request_context():
-            with self.assertRaisesRegex(OAuthError, "access_denied"):
+            with self.assertRaisesRegex(
+                OIDCAuthenticationError,
+                r"OIDC authorization failed: access_denied",
+            ) as ctx:
                 client.authenticate()
+
+        self.assertIs(ctx.exception.__cause__, oauth_error)
+
+    @patch("rfl.authentication.oidc.OAuth")
+    def test_redirect_oauth_error_translated(self, mock_oauth_cls):
+        oauth_error = OAuthError(error="mismatching_state")
+        mock_client = MagicMock()
+        mock_oauth_cls.return_value.register.return_value = mock_client
+        mock_client.authorize_redirect.side_effect = oauth_error
+
+        client = self._make_client()
+        with self.app.test_request_context():
+            with self.assertRaisesRegex(
+                OIDCAuthenticationError,
+                r"OIDC authorization redirect failed: mismatching_state",
+            ) as ctx:
+                client.redirect()
+
+        self.assertIs(ctx.exception.__cause__, oauth_error)
 
     def test_reexports(self):
         self.assertIs(RFL_OAuthError, OAuthError)
