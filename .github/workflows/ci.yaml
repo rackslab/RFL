@@ -176,3 +176,72 @@ jobs:
 
       - name: Run tests
         run: ~/venv/bin/python3 -m pytest --import-mode=importlib
+
+  os_suse_tests:
+    name: OS integration tests (suse)
+    strategy:
+      fail-fast: false
+      matrix:
+        envs:
+        - container: opensuse/leap:15
+        - container: opensuse/leap:16.0
+        - container: opensuse/tumbleweed
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.envs.container }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tests dependencies
+        run: |
+          zypper -n ref
+          zypper -n in \
+            python3 \
+            python3-pip \
+            python3-pytest \
+            python3-Flask \
+            python3-PyJWT \
+            python3-ldap \
+            python3-PyYAML \
+            python3-tomli
+
+      # Leap 15 ships Python 3.6; wheel is required for pip builds with setup.py.
+      - name: Install python3-wheel (Leap 15)
+        if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
+        run: zypper -n in python3-wheel
+
+      - name: Create virtual environment
+        run: python3 -m venv --system-site-packages ~/venv
+
+      # Unfortunately, pip on Leap 15 does not fully support PEP517 pyproject.toml.
+      # As a workaround, the setup.py script provided by RFL.build package is copied.
+      - name: Install RFL.build setup wrapper (Leap 15)
+        if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
+        run: |
+          cp src/build/rfl/build/scripts/setup src/core/setup.py
+          cp src/build/rfl/build/scripts/setup src/authentication/setup.py
+          cp src/build/rfl/build/scripts/setup src/build/setup.py
+          cp src/build/rfl/build/scripts/setup src/log/setup.py
+          cp src/build/rfl/build/scripts/setup src/permissions/setup.py
+          cp src/build/rfl/build/scripts/setup src/settings/setup.py
+          cp src/build/rfl/build/scripts/setup src/web/setup.py
+
+      - name: Install application
+        run: NODEPS=1 PIP=~/venv/bin/pip bash install.sh
+
+      # Unfortunately, pytest on Leap 15 does not support --import-mode=importlib.
+      # On this old version, explicitly test all packages individually.
+      - name: Run tests (Leap 15)
+        if: ${{ matrix.envs.container == 'opensuse/leap:15' }}
+        run: |
+          ~/venv/bin/python3 -m pytest src/core
+          ~/venv/bin/python3 -m pytest src/authentication
+          ~/venv/bin/python3 -m pytest src/build
+          ~/venv/bin/python3 -m pytest src/log
+          ~/venv/bin/python3 -m pytest src/permissions
+          ~/venv/bin/python3 -m pytest src/settings
+          ~/venv/bin/python3 -m pytest src/web
+
+      - name: Run tests
+        if: ${{ matrix.envs.container != 'opensuse/leap:15' }}
+        run: ~/venv/bin/python3 -m pytest --import-mode=importlib
