@@ -34,7 +34,12 @@ rfl-install-setup-generator = "rfl.build.installsetup:main"
 rfl-project-version = "rfl.build.projectversion:main"
 
 [tool.setuptools.packages.find]
-include = ["rfl.build*"]
+# Packages are listed explicitly because automatic discovery does not apply here.
+# The rfl/ tree is a namespace (no rfl/__init__.py), so the setup.py wrapper used on
+# older distributions (Python 3.6 / el8) disables autofind and turns "rfl.build*" into
+# "rfl.build" only, without subpackages such as rfl.build.testing. Modern pip with
+# PEP 517 would accept "rfl.build*", but the explicit list keeps both toolchains aligned.
+include = ["rfl.build", "rfl.build.testing"]
 
 [tool.setuptools.package-data]
 "rfl.build.scripts" = ["*"]
