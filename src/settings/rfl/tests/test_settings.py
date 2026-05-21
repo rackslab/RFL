@@ -124,6 +124,48 @@ class TestSettingsDefinition(unittest.TestCase):
         self.assertEqual(
             definition.section("section2").parameter("param_uri")._type, "uri"
         )
+        self.assertIsNone(definition.section("section1").doc)
+        self.assertIsNone(definition.section("section2").doc)
+
+    def test_section_doc_valid(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["_doc"] = "Documentation for section2"
+        definition = SettingsDefinition(loader)
+        self.assertEqual(
+            definition.section("section2").doc, "Documentation for section2"
+        )
+        self.assertEqual(
+            definition.section("section2").parameter("param_int").default, 10
+        )
+
+    def test_section_doc_invalid_type_int(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["_doc"] = 42
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Invalid type for section _doc in \[section2\]$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_section_doc_invalid_type_dict(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["_doc"] = {"type": "str", "default": "fail"}
+        with self.assertRaisesRegex(
+            SettingsDefinitionError,
+            r"^Invalid type for section _doc in \[section2\]$",
+        ):
+            SettingsDefinition(loader)
+
+    def test_section_doc_with_parameter_named_doc(self):
+        loader = SettingsDefinitionLoaderYaml(raw=VALID_DEFINITION)
+        loader.content["section2"]["_doc"] = "Section documentation"
+        loader.content["section2"]["doc"] = {"type": "str", "default": "value"}
+        definition = SettingsDefinition(loader)
+        self.assertEqual(definition.section("section2").doc, "Section documentation")
+        self.assertTrue(definition.section("section2").has_parameter("doc"))
+        self.assertEqual(
+            definition.section("section2").parameter("doc").default, "value"
+        )
 
     def test_invalid_yaml(self):
         with self.assertRaisesRegex(
