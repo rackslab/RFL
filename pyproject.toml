@@ -21,6 +21,20 @@ tests = [
     "PyYAML",
 ]
 
+[tool.pytest.ini_options]
+# The src/build package directory is named "build", which pytest skips by default
+# (norecursedirs). List testpaths explicitly so RFL.build tests are collected.
+testpaths = [
+    "src/core",
+    "src/authentication",
+    "src/build",
+    "src/log",
+    "src/permissions",
+    "src/settings",
+    "src/web",
+]
+import_mode = "importlib"
+
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F"]
