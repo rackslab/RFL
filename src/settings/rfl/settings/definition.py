@@ -212,11 +212,19 @@ class SettingsParameterDefinition:
 
 
 class SettingsSectionDefinition:
-    def __init__(self, section: str, parameters: dict):
+    SECTION_DOC_KEY = "_doc"
+
+    def __init__(self, section: str, content: dict):
         self.name = section
+        self.doc = content.get(self.SECTION_DOC_KEY)
+        if self.doc is not None and not isinstance(self.doc, str):
+            raise SettingsDefinitionError(
+                f"Invalid type for section {self.SECTION_DOC_KEY} in [{section}]"
+            )
         self.parameters = [
             SettingsParameterDefinition(section, parameter, properties)
-            for parameter, properties in parameters.items()
+            for parameter, properties in content.items()
+            if parameter != self.SECTION_DOC_KEY
         ]
 
     def has_parameter(self, name: str) -> bool:
@@ -236,8 +244,8 @@ class SettingsDefinition:
     def __init__(self, loader: SettingsDefinitionLoader):
         self.loader = loader
         self.sections = [
-            SettingsSectionDefinition(section, parameters)
-            for section, parameters in loader.content.items()
+            SettingsSectionDefinition(section, content)
+            for section, content in loader.content.items()
         ]
         self._validate_deprecated_references()
 
