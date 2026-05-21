@@ -9,6 +9,8 @@ and this project adheres to
 ## [unreleased]
 
 ### Added
+- build: Provide `expand` unittest parameterization decorator in
+  `rfl.build.testing.params` as alternative to parameterized library (#75).
 - settings: Support optional section-level documentation via `_doc` in settings
   definition (#80).
 
