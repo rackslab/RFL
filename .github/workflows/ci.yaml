@@ -41,7 +41,7 @@ jobs:
 
       - name: Install application
         run: |
-          pip install src/core "src/authentication[oidc]" src/build src/log src/permissions src/settings src/web
+          pip install src/core "src/authentication[all]" src/build src/log src/permissions src/settings src/web
 
       - name: Run tests
         run: pytest --import-mode=importlib
