@@ -15,7 +15,7 @@ authors = [
 dependencies = [
     "Flask",
     "RFL.permissions",
-    "RFL.authentication"
+    "RFL.authentication[jwt]"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

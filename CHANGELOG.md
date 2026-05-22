@@ -21,6 +21,8 @@ and this project adheres to
 - auth: Move PyJWT and python-ldap from core dependencies to optional `[jwt]` and
   `[ldap]` extras on `RFL.authentication`; add `[all]` extra for the full stack
   (#84).
+- web: Depend on `RFL.authentication[jwt]` so web no longer pulls LDAP
+  transitively (#84).
 
 ## [1.7.0] - 2026-05-08
 
