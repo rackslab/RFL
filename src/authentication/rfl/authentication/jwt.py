@@ -10,7 +10,10 @@ from datetime import datetime, timezone, timedelta
 import logging
 from pathlib import Path
 
-import jwt
+try:
+    import jwt
+except ImportError as err:
+    raise ImportError("PyJWT is required for RFL JWT Authentication") from err
 
 from .user import AuthenticatedUser
 from .errors import (
