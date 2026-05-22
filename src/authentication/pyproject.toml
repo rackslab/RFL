@@ -14,8 +14,6 @@ authors = [
 ]
 dependencies = [
     "RFL.core",
-    "PyJWT",
-    "python-ldap",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -27,7 +25,16 @@ classifiers = [
 readme = "README.md"
 
 [project.optional-dependencies]
+jwt = ["PyJWT"]
+ldap = ["python-ldap"]
 oidc = ["Authlib", "Flask", "requests"]
+all = [
+    "PyJWT",
+    "python-ldap",
+    "Authlib",
+    "Flask",
+    "requests",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/rackslab/RFL"

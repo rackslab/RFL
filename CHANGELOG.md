@@ -14,6 +14,13 @@ and this project adheres to
 - settings: Support optional section-level documentation via `_doc` in settings
   definition (#80).
 - auth: Add `OIDCClient` for OpenID Connect Authorization Code flow (#76).
+- auth: Add `[all]` extra on `RFL.authentication` to install all authentication
+  backends (jwt, ldap, oidc) (#84).
+
+### Changed
+- auth: Move PyJWT and python-ldap from core dependencies to optional `[jwt]` and
+  `[ldap]` extras on `RFL.authentication`; add `[all]` extra for the full stack
+  (#84).
 
 ## [1.7.0] - 2026-05-08
 

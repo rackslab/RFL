@@ -8,8 +8,11 @@ from typing import Optional, List, Tuple
 from pathlib import Path
 import logging
 
-import ldap
-import ldap.filter
+try:
+    import ldap
+    import ldap.filter
+except ImportError as err:
+    raise ImportError("python-ldap is required for RFL LDAP Authentication") from err
 
 from .user import AuthenticatedUser
 from .errors import LDAPAuthenticationError
