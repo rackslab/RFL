@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Added
+- auth: Add optional `page_size` argument to `LDAPAuthentifier` (default 1000) for
+  LDAP paged search page size (#41).
+
+### Fixed
+- auth: Support LDAP paged results on subtree searches to avoid
+  `ldap.SIZELIMIT_EXCEEDED` (#41).
+
 ## [1.8.0] - 2026-05-22
 
 ### Added
