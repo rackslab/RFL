@@ -11,6 +11,7 @@ import logging
 try:
     import ldap
     import ldap.filter
+    from ldap.controls import SimplePagedResultsControl
 except ImportError as err:
     raise ImportError("python-ldap is required for RFL LDAP Authentication") from err
 
@@ -19,6 +20,8 @@ from .errors import LDAPAuthenticationError
 
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_LDAP_PAGE_SIZE = 1000
 
 
 class LDAPAuthentifier:
@@ -40,7 +43,13 @@ class LDAPAuthentifier:
         restricted_groups: Optional[List[str]] = None,
         lookup_user_dn: bool = False,
         lookup_as_user: Optional[bool] = True,
+        page_size: int = DEFAULT_LDAP_PAGE_SIZE,
     ):
+        if page_size <= 0:
+            raise LDAPAuthenticationError(
+                f"LDAP page_size must be a positive integer, got {page_size}"
+            )
+        self.page_size = page_size
         self.uri = uri
         self.cacert = cacert
         self.user_base = user_base
@@ -130,6 +139,49 @@ class LDAPAuthentifier:
                 ) from err
         return connection
 
+    def _search_paged(
+        self,
+        connection: ldap.ldapobject.LDAPObject,
+        base: str,
+        scope: int,
+        search_filter: str,
+        attrlist: Optional[List[str]] = None,
+    ) -> List:
+        """Run an LDAP search with RFC 2696 paged results and return all pages."""
+        known_ldap_resp_ctrls = {
+            SimplePagedResultsControl.controlType: SimplePagedResultsControl,
+        }
+        page_control = SimplePagedResultsControl(True, size=self.page_size, cookie="")
+        results = []
+        while True:
+            msgid = connection.search_ext(
+                base,
+                scope,
+                search_filter,
+                attrlist=attrlist,
+                serverctrls=[page_control],
+            )
+            _, rdata, _, serverctrls = connection.result3(
+                msgid, resp_ctrl_classes=known_ldap_resp_ctrls
+            )
+            results.extend(rdata)
+            pctrls = [
+                control
+                for control in (serverctrls or [])
+                if control.controlType == SimplePagedResultsControl.controlType
+            ]
+            if not pctrls:
+                logger.debug(
+                    "LDAP server did not return paged results control for search "
+                    "base %s",
+                    base,
+                )
+                break
+            if not pctrls[0].cookie:
+                break
+            page_control.cookie = pctrls[0].cookie
+        return results
+
     def _get_user_info(
         self, connection: ldap.ldapobject.LDAPObject, user_dn: str
     ) -> Tuple[str, int]:
@@ -204,7 +256,8 @@ class LDAPAuthentifier:
             f"(member={ldap.filter.escape_filter_chars(user_dn)}){gid_filter}))"
         )
         try:
-            results = connection.search_s(
+            results = self._search_paged(
+                connection,
                 self.group_base,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
@@ -213,6 +266,10 @@ class LDAPAuthentifier:
         except ldap.NO_SUCH_OBJECT as err:
             raise LDAPAuthenticationError(
                 f"Unable to find group base {self.group_base}"
+            ) from err
+        except ldap.SIZELIMIT_EXCEEDED as err:
+            raise LDAPAuthenticationError(
+                f"LDAP size limit exceeded on group search: {err}"
             ) from err
         logger.debug(
             "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
@@ -292,7 +349,8 @@ class LDAPAuthentifier:
             f"({self.user_name_attribute}={ldap.filter.escape_filter_chars(user)}))"
         )
         try:
-            results = connection.search_s(
+            results = self._search_paged(
+                connection,
                 self.user_base,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
@@ -310,11 +368,15 @@ class LDAPAuthentifier:
             raise LDAPAuthenticationError(
                 f"Operations error on user DN lookup: {err}"
             ) from err
+        except ldap.SIZELIMIT_EXCEEDED as err:
+            raise LDAPAuthenticationError(
+                f"LDAP size limit exceeded on user DN lookup: {err}"
+            ) from err
         finally:
             connection.unbind_s()
         logger.debug(
             "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
-            self.group_base,
+            self.user_base,
             search_filter,
             str(results),
         )
@@ -396,7 +458,8 @@ class LDAPAuthentifier:
         """Return list of all users name/pairs pairs in LDAP directory."""
         search_filter = f"(objectClass={self.user_class})"
         try:
-            results = connection.search_s(
+            results = self._search_paged(
+                connection,
                 self.user_base,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
@@ -410,9 +473,13 @@ class LDAPAuthentifier:
             raise LDAPAuthenticationError(
                 f"Operations error on users search: {err}"
             ) from err
+        except ldap.SIZELIMIT_EXCEEDED as err:
+            raise LDAPAuthenticationError(
+                f"LDAP size limit exceeded on users search: {err}"
+            ) from err
         logger.debug(
             "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
-            self.group_base,
+            self.user_base,
             search_filter,
             str(results),
         )
