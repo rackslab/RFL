@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-from typing import Optional, List
+from typing import Optional, List, Union
 import logging
 
 from .formatters import TTYFormatter, DaemonFormatter, auto_formatter
@@ -22,18 +22,32 @@ __all__ = [
 
 def setup_logger(
     debug: bool = False,
+    level: Optional[Union[int, str]] = None,
     log_flags: Optional[List[str]] = None,
     debug_flags: Optional[List[str]] = None,
     formatter: logging.Formatter = auto_formatter(),
     component: Optional[str] = None,
     clear: bool = True,
 ) -> None:
-    """Setup root logger debug level, debug flags and formatter.
+    """Setup root logger level, debug flags and formatter.
+
+    Log level is resolved in this order: explicit level argument, then
+    debug=True (DEBUG), otherwise INFO. The debug flag also controls
+    formatter verbosity, independent of the resolved log level.
 
     When clear is True (default), existing root logger handlers are removed
     before adding a new one, similarly to logging.basicConfig(force=True).
     """
-    if debug:
+    if level is not None:
+        if isinstance(level, str):
+            logging_level = getattr(logging, level.upper(), None)
+            if not isinstance(logging_level, int):
+                raise ValueError(f"Unknown log level: {level}")
+        elif isinstance(level, int):
+            logging_level = level
+        else:
+            raise TypeError(f"Unsupported log level type: {type(level).__name__}")
+    elif debug:
         logging_level = logging.DEBUG
     else:
         logging_level = logging.INFO
