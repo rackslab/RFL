@@ -25,11 +25,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install tests dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get install -y build-essential python3-dev libldap2-dev libsasl2-dev
           python -m pip install --upgrade pip
-          pip install pytest
 
       # The version of setuptools in python 3.8 environment does not support PEP 639
       # license metadata format. Patch pyproject.toml for this version to restore old
@@ -38,6 +37,9 @@ jobs:
         if: ${{ matrix.python-version == '3.8' }}
         run: |
           sed -i 's/^license = \(".*"\)/license = {text = \1}/' pyproject.toml src/*/pyproject.toml
+
+      - name: Install tests dependencies
+        run: pip install ".[tests]"
 
       - name: Install application
         run: |
@@ -85,6 +87,7 @@ jobs:
             python3-ldap \
             python3-pip \
             python3-pytest \
+            python3-setuptools \
             python3-PyYAML \
             python3-tomli
 
@@ -151,6 +154,7 @@ jobs:
             python3-pip \
             python3-pytest \
             python3-requests \
+            python3-setuptools \
             python3-tomli \
             python3-yaml \
             python3-venv
@@ -195,6 +199,7 @@ jobs:
             python3 \
             python3-pip \
             python3-pytest \
+            python3-setuptools \
             python3-Flask \
             python3-PyJWT \
             python3-ldap \
