@@ -21,6 +21,7 @@ tests = [
     "python-ldap",
     "PyYAML",
     "requests",
+    "setuptools",
 ]
 
 [tool.pytest.ini_options]
