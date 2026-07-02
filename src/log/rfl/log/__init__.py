@@ -26,8 +26,13 @@ def setup_logger(
     debug_flags: Optional[List[str]] = None,
     formatter: logging.Formatter = auto_formatter(),
     component: Optional[str] = None,
+    clear: bool = True,
 ) -> None:
-    """Setup root logger debug level, debug flags and formatter."""
+    """Setup root logger debug level, debug flags and formatter.
+
+    When clear is True (default), existing root logger handlers are removed
+    before adding a new one, similarly to logging.basicConfig(force=True).
+    """
     if debug:
         logging_level = logging.DEBUG
     else:
@@ -39,6 +44,10 @@ def setup_logger(
         debug_flags = []
 
     root_logger = logging.getLogger()
+    if clear:
+        for existing_handler in root_logger.handlers[:]:
+            root_logger.removeHandler(existing_handler)
+            existing_handler.close()
     root_logger.setLevel(logging_level)
     handler = logging.StreamHandler()
     handler.setLevel(logging_level)
