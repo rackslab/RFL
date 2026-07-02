@@ -13,6 +13,7 @@ and this project adheres to
 - build:
   - Support setuptools.packages.find.where directive in setup converter.
   - Support setuptools.data-files directives in setup converter.
+- log: Support log levels higher than INFO in `setup_logger()` (#89).
 
 ### Changed
 
