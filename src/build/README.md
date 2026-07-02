@@ -2,6 +2,96 @@
 
 Utilities to help backport builds of Python projects.
 
+## PEP 517 setup converter
+
+Some platforms ship `pip` and `setuptools` without full [PEP 517](https://peps.python.org/pep-0517/)
+support — they cannot build a package by invoking the `[build-system]` backend declared in
+`pyproject.toml` (for example Python 3.6 on Rocky Linux 8, Ubuntu Jammy, or openSUSE Leap
+15). The setup converter is a small `setup.py` shim that reads `pyproject.toml` from the
+current working directory and calls `setuptools.setup()` with mapped parameters.
+
+The script is shipped as package data in `rfl.build.scripts` and is meant to be copied
+next to `pyproject.toml` as `setup.py` before running legacy `pip install`.
+
+### Usage
+
+Copy the converter into a package tree with `pyproject.toml`:
+
+```bash
+rfl-install-setup-generator
+```
+
+This writes `./setup.py` in the current working directory.
+
+When installing RFL from source, `install.sh` can copy the converter into every package
+under `src/` automatically:
+
+```bash
+PEP517_SETUP_WRAPPER=1 bash install.sh
+```
+
+### Supported `pyproject.toml` fields
+
+The converter maps a subset of modern metadata to `setuptools.setup()` keyword
+arguments:
+
+| Source | `setup()` argument |
+|--------|-------------------|
+| `[project]` `name`, `version` | `name`, `version` |
+| `[project]` `authors[0]` | `author`, `author_email` |
+| `[project]` `scripts` | `entry_points["console_scripts"]` |
+| `[project]` `dependencies` | `install_requires` |
+| `[project]` `optional-dependencies` | `extras_require` |
+| `[project]` `license.text` | `license` |
+| `[project]` `license.file` | `license_files` |
+| `[project.urls]` `Homepage` | `url` |
+| `[tool.setuptools]` `packages` (explicit list) | `packages` |
+| `[tool.setuptools.packages.find]` `include` | `packages` (see below) |
+| `[tool.setuptools]` `package-data` | `package_data`, `include_package_data=True` |
+
+`platforms` is always set to `["GNU/Linux"]`.
+
+The `[tool.setuptools]` section is optional. If `[project]` is missing, the script
+prints a message and exits with code 0.
+
+### Package discovery
+
+When `[tool.setuptools.packages.find]` is used, each `include` entry must contain a
+dot (for example `rfl.build*`). Entries without a dot are ignored.
+
+For each include pattern, the converter inspects the top-level directory (the part
+before the first dot). If that directory has no `__init__.py`, it is treated as a
+native namespace package. In that case, wildcard characters are stripped from include
+patterns and the resulting names are passed explicitly to `setup()` — `find_packages()`
+is not used.
+
+If every inspected top-level directory contains an `__init__.py`, `find_packages()` is
+used instead.
+
+This workaround exists because `find_namespace_packages()` is unavailable in
+`setuptools` versions shipped with Python 3.6.
+
+### Limits
+
+The converter is intentionally minimal. It does **not** map many common
+`pyproject.toml` fields, including:
+
+- `description`, `readme`, `requires-python`, `keywords`, `classifiers`
+- license metadata as a plain SPDX string (only `license.text` and `license.file`
+  tables are handled explicitly)
+- project URLs other than `Homepage`
+- entry points other than `[project.scripts]` console scripts
+- dynamic metadata, `pyproject.toml` `[build-system]` options, and most
+  `[tool.setuptools]` directives beyond packages and package data
+
+Only the first `[project]` author entry is used.
+
+The script must be executed from the directory that contains `pyproject.toml`. It
+requires `tomllib` (Python 3.11+) or the `tomli` package on older Python versions.
+
+On modern toolchains with full PEP 517 support, prefer building directly from
+`pyproject.toml` and do not copy this shim.
+
 ## `rfl.build.testing` subpackage
 
 The `rfl.build.testing` subpackage provides reusable helpers for writing unit tests in
