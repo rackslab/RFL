@@ -48,6 +48,42 @@ class TestSetupLogger(TestLogFilterer):
         handler = logger.handlers[-1]
         self.assertEqual(handler.level, logging.DEBUG)
 
+    def test_setup_warning(self):
+        setup_logger(level=logging.WARNING)
+        logger = logging.getLogger()
+        self.assertEqual(logger.level, logging.WARNING)
+        handler = logger.handlers[-1]
+        self.assertEqual(handler.level, logging.WARNING)
+
+    def test_setup_error(self):
+        setup_logger(level=logging.ERROR)
+        logger = logging.getLogger()
+        self.assertEqual(logger.level, logging.ERROR)
+        handler = logger.handlers[-1]
+        self.assertEqual(handler.level, logging.ERROR)
+
+    def test_setup_level_string(self):
+        setup_logger(level="WARNING")
+        logger = logging.getLogger()
+        self.assertEqual(logger.level, logging.WARNING)
+        handler = logger.handlers[-1]
+        self.assertEqual(handler.level, logging.WARNING)
+
+    def test_setup_level_overrides_debug(self):
+        setup_logger(level=logging.WARNING, debug=True)
+        logger = logging.getLogger()
+        self.assertEqual(logger.level, logging.WARNING)
+        handler = logger.handlers[-1]
+        self.assertEqual(handler.level, logging.WARNING)
+
+    def test_setup_invalid_level(self):
+        with self.assertRaisesRegex(ValueError, r"Unknown log level: NOTALEVEL"):
+            setup_logger(level="NOTALEVEL")
+
+    def test_setup_invalid_level_type(self):
+        with self.assertRaisesRegex(TypeError, r"Unsupported log level type: float"):
+            setup_logger(level=1.5)
+
     def test_setup_filter(self):
         setup_logger(log_flags=["rfl"])
         # get root logger
