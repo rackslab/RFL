@@ -46,8 +46,11 @@ arguments:
 | `[project]` `license.file` | `license_files` |
 | `[project.urls]` `Homepage` | `url` |
 | `[tool.setuptools]` `packages` (explicit list) | `packages` |
-| `[tool.setuptools.packages.find]` `include` | `packages` (see below) |
+| `[tool.setuptools.packages.find]` `include` | `packages` (namespace detection; filtered discovery only when `where != "."`) |
+| `[tool.setuptools.packages.find]` `where` | `packages` via `find_packages(where=…)` when not `"."`; sets `package_dir={"": where}` |
+| `[tool.setuptools.packages.find]` `exclude` | passed to `find_packages(exclude=…)` when `where != "."` |
 | `[tool.setuptools]` `package-data` | `package_data`, `include_package_data=True` |
+| `[tool.setuptools]` `data-files` | `data_files` (with glob expansion) |
 
 `platforms` is always set to `["GNU/Linux"]`.
 
@@ -56,20 +59,47 @@ prints a message and exits with code 0.
 
 ### Package discovery
 
-When `[tool.setuptools.packages.find]` is used, each `include` entry must contain a
-dot (for example `rfl.build*`). Entries without a dot are ignored.
+`[tool.setuptools.packages.find]` supports `where`, `include`, and `exclude`:
 
-For each include pattern, the converter inspects the top-level directory (the part
-before the first dot). If that directory has no `__init__.py`, it is treated as a
-native namespace package. In that case, wildcard characters are stripped from include
-patterns and the resulting names are passed explicitly to `setup()` — `find_packages()`
-is not used.
+- `where` (default `["."]`): directory searched for packages. Use `where = ["src"]`
+  for src-layout projects without an explicit `include`.
+- `include` (default `["*"]`): on flat layout (`where` is `"."`), used only for
+  namespace detection (see below), not passed to `find_packages()`. On src layout,
+  glob patterns are passed to `find_packages(include=…)`.
+- `exclude` (default `[]`): passed to `find_packages(exclude=…)` on src layout only.
+- When `where` is not `"."`, the converter also sets `package_dir = {"": where}` so
+  setuptools 39 can locate packages under `src/` (PEP 517 backends infer this
+  automatically; the shim must set it explicitly).
+- Only the first `where` entry is used when multiple directories are listed.
 
-If every inspected top-level directory contains an `__init__.py`, `find_packages()` is
-used instead.
+When `include` patterns contain a dot (for example `rfl.build*`), entries without a
+dot are ignored. For each dotted pattern, the converter inspects the top-level
+directory under `where` (the part before the first dot). If that directory has no
+`__init__.py`, it is treated as a native namespace package. In that case, wildcard
+characters are stripped from include patterns and the resulting names are passed
+explicitly to `setup()` — `find_packages()` is not used.
 
-This workaround exists because `find_namespace_packages()` is unavailable in
-`setuptools` versions shipped with Python 3.6.
+If every inspected top-level directory contains an `__init__.py`, `find_packages()`
+is used. On flat layout it is called without filters (legacy behaviour). On src
+layout it is called with the configured `where`, `include`, and `exclude` values.
+
+This workaround exists because `find_namespace_packages()` requires setuptools ≥
+40.1.0 and is unavailable on Rocky Linux 8 (setuptools 39.2.0).
+
+### Data files
+
+`[tool.setuptools.data-files]` maps install destinations to source path lists.
+Glob patterns (`*`, `?`, `[…]`) are expanded relative to the project root before
+calling `setup()`. Setuptools 39 does not expand globs in `data_files` natively;
+the converter mirrors modern PEP 517 behaviour.
+
+Example:
+
+```toml
+[tool.setuptools.data-files]
+"myapp/conf" = ["conf/app.yml", "conf/app.ini.example"]
+"myapp/templates" = ["web/templates/*"]
+```
 
 ### Limits
 
@@ -82,7 +112,9 @@ The converter is intentionally minimal. It does **not** map many common
 - project URLs other than `Homepage`
 - entry points other than `[project.scripts]` console scripts
 - dynamic metadata, `pyproject.toml` `[build-system]` options, and most
-  `[tool.setuptools]` directives beyond packages and package data
+  `[tool.setuptools]` directives beyond packages, package data, and data files
+- `[tool.setuptools]` `package-dir` as an explicit pyproject key (only inferred from
+  `where`)
 
 Only the first `[project]` author entry is used.
 
