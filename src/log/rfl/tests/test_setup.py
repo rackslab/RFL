@@ -102,6 +102,21 @@ class TestSetupLogger(TestLogFilterer):
             handler, {"name": "fail.pkg", "levelno": logging.DEBUG, "msg": "test"}
         )
 
+    def test_setup_clears_handlers(self):
+        setup_logger()
+        setup_logger()
+        logger = logging.getLogger()
+        self.assertEqual(len(logger.handlers), 1)
+
+    def test_setup_clear_false_stacks_handlers(self):
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+            handler.close()
+        setup_logger(clear=False)
+        setup_logger(clear=False)
+        self.assertEqual(len(root_logger.handlers), 2)
+
 
 class TestEnforceLogger(TestLogFilterer):
     def setUp(self):
