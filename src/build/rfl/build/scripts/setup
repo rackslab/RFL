@@ -11,8 +11,9 @@ projects that provide pyproject.toml with old versions of pip/python (eg. python
 without PEP 518 support.
 """
 
-import sys
+import glob
 import os
+import sys
 
 from setuptools import setup, find_packages
 
@@ -22,6 +23,34 @@ except ImportError:
     import tomli as tomllib
 
 header = "rfl-build"
+
+_GLOB_CHARACTERS = {"*", "?", "[", "]", "{", "}"}
+
+
+def _expand_glob_patterns(patterns, root_dir="."):
+    """Expand glob patterns to explicit file paths relative to root_dir.
+
+    Each entry in patterns is either a literal path or a glob. Literal paths are
+    returned unchanged apart from normalisation to a forward-slash path relative to
+    root_dir. Glob patterns are expanded with glob.iglob; matching paths are sorted
+    and returned with the same normalisation.
+
+    Returns a list of source file paths suitable for setuptools setup(data_files=…).
+    """
+    expanded = []
+    for value in patterns:
+        if any(char in value for char in _GLOB_CHARACTERS):
+            glob_path = os.path.abspath(os.path.join(root_dir, value))
+            expanded.extend(
+                sorted(
+                    os.path.relpath(path, root_dir).replace(os.sep, "/")
+                    for path in glob.iglob(glob_path)
+                )
+            )
+        else:
+            expanded.append(os.path.relpath(value, root_dir).replace(os.sep, "/"))
+    return expanded
+
 
 with open("pyproject.toml", "rb") as fh:
     pyproject = tomllib.load(fh)
@@ -55,26 +84,46 @@ if "scripts" in pyproject["project"]:
 # this case, the subpackages are explicity declared (without wildcard) in setup(). If no
 # namespace is detected, the packages are automatically detected with find_packages().
 
-if (
-    "tool" in pyproject
-    and "setuptools" in pyproject["tool"]
-):
+if "tool" in pyproject and "setuptools" in pyproject["tool"]:
     if "packages" in pyproject["tool"]["setuptools"]:
-
         if "find" in pyproject["tool"]["setuptools"]["packages"]:
+            find_config = pyproject["tool"]["setuptools"]["packages"]["find"]
+            # Same defaults as setuptools when keys are omitted from pyproject.toml.
+            where = find_config.get("where", ["."])
+            # where is a list in pyproject.toml; find_packages() accepts one directory.
+            where_dir = where[0] if isinstance(where, list) else where
+            include = find_config.get("include", ["*"])
+            exclude = find_config.get("exclude", [])
+
             autofind = True
             packages = []
-            for include in pyproject["tool"]["setuptools"]["packages"]["find"]["include"]:
-                if "." not in include:
+            for pattern in include:
+                if "." not in pattern:
                     continue
-                topfolder = include.split(".", 1)[0]
+                # Namespace check must run under where_dir (eg. src/rfl, not rfl).
+                topfolder = os.path.join(where_dir, pattern.split(".", 1)[0])
                 if "__init__.py" not in os.listdir(topfolder):
                     autofind = False
-                packages.append(include.replace("*", ""))
+                packages.append(pattern.replace("*", ""))
             if autofind:
-                kwargs["packages"] = find_packages()
+                if where_dir != ".":
+                    # Src layout: honour where/include/exclude like a PEP 517 backend.
+                    kwargs["packages"] = find_packages(
+                        where=where_dir,
+                        include=tuple(include),
+                        exclude=tuple(exclude),
+                    )
+                    # Setuptools 39 needs this; it looks at the project root otherwise.
+                    kwargs["package_dir"] = {"": where_dir}
+                else:
+                    # Flat layout: include is for namespace detection only; do not
+                    # filter find_packages().
+                    kwargs["packages"] = find_packages()
             else:
                 kwargs["packages"] = packages
+                if where_dir != ".":
+                    # Explicit package names still live under where_dir on src layout.
+                    kwargs["package_dir"] = {"": where_dir}
         else:
             # Explicit packages listing without find
             kwargs["packages"] = pyproject["tool"]["setuptools"]["packages"]
@@ -88,6 +137,16 @@ if (
         }
         kwargs["include_package_data"] = True
         print(f"{header}: package data {kwargs['package_data']}")
+
+    if "data-files" in pyproject["tool"]["setuptools"]:
+        # Modern setuptools expands globs in [tool.setuptools.data-files] over PEP
+        # 517, but setuptools 39 setup(data_files=…) expects an explicit file list.
+        # Expand patterns here so legacy pip install matches PEP 517 behaviour.
+        kwargs["data_files"] = [
+            (dest, _expand_glob_patterns(patterns))
+            for dest, patterns in pyproject["tool"]["setuptools"]["data-files"].items()
+        ]
+        print(f"{header}: data files {kwargs['data_files']}")
 
 if "dependencies" in pyproject["project"]:
     kwargs["install_requires"] = pyproject["project"]["dependencies"]
