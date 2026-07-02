@@ -166,11 +166,16 @@ elif "file" in pyproject["project"]["license"]:
 if "urls" in pyproject["project"]:
     kwargs["url"] = pyproject["project"]["urls"]["Homepage"]
 
+authors = pyproject["project"].get("authors") or []
+if authors:
+    if "name" in authors[0]:
+        kwargs["author"] = authors[0]["name"]
+    if "email" in authors[0]:
+        kwargs["author_email"] = authors[0]["email"]
+
 setup(
     name=pyproject["project"]["name"],
     version=pyproject["project"]["version"],
-    author=pyproject["project"]["authors"][0]["name"],
-    author_email=pyproject["project"]["authors"][0]["email"],
     platforms=["GNU/Linux"],
     **kwargs,
 )

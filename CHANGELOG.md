@@ -10,9 +10,14 @@ and this project adheres to
 
 ### Added
 
-- build::
+- build:
   - Support setuptools.packages.find.where directive in setup converter.
   - Support setuptools.data-files directives in setup converter.
+
+### Changed
+
+- build: Make `authors` optional in setup converter (omit `author` and
+  `author_email` when not specified).
 
 ## [1.8.0] - 2026-05-22
 
