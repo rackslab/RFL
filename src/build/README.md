@@ -38,7 +38,7 @@ arguments:
 | Source | `setup()` argument |
 |--------|-------------------|
 | `[project]` `name`, `version` | `name`, `version` |
-| `[project]` `authors[0]` | `author`, `author_email` |
+| `[project]` `authors[0]` (optional) | `author`, `author_email` (each only when present) |
 | `[project]` `scripts` | `entry_points["console_scripts"]` |
 | `[project]` `dependencies` | `install_requires` |
 | `[project]` `optional-dependencies` | `extras_require` |
@@ -116,7 +116,9 @@ The converter is intentionally minimal. It does **not** map many common
 - `[tool.setuptools]` `package-dir` as an explicit pyproject key (only inferred from
   `where`)
 
-Only the first `[project]` author entry is used.
+When `[project].authors` is present, only the first entry is used; `name` and
+`email` are each passed to `setup()` only when specified. When `authors` is absent
+or empty, no author metadata is passed.
 
 The script must be executed from the directory that contains `pyproject.toml`. It
 requires `tomllib` (Python 3.11+) or the `tomli` package on older Python versions.
