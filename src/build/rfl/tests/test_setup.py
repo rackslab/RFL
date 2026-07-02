@@ -29,18 +29,27 @@ def _run_setup_script():
     exec(compile(code, str(path), "exec"), {"__name__": "__main__"})
 
 
-def _minimal_pyproject(extra="", license_line='license = "LGPL-3.0-or-later"'):
+def _minimal_pyproject(
+    extra="",
+    license_line='license = "LGPL-3.0-or-later"',
+    authors_block=textwrap.dedent(
+        """\
+        authors = [
+            {name = "Test Author", email = "test@example.com"},
+        ]
+        """
+    ),
+):
     content = textwrap.dedent(
         f"""\
         [project]
         name = "test-pkg"
         version = "1.0.0"
         {license_line}
-        authors = [
-            {{name = "Test Author", email = "test@example.com"}},
-        ]
         """
     )
+    if authors_block:
+        content += textwrap.dedent(authors_block)
     if extra:
         content += textwrap.dedent(extra)
     return content
@@ -89,6 +98,61 @@ class TestSetupScript(unittest.TestCase):
             name="test-pkg",
             version="1.0.0",
             author="Test Author",
+            author_email="test@example.com",
+            platforms=["GNU/Linux"],
+        )
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_no_authors(self, mock_setup, mock_exit):
+        with _project_dir(_minimal_pyproject(authors_block="")):
+            _run_setup_script()
+
+        mock_exit.assert_not_called()
+        mock_setup.assert_called_once_with(
+            name="test-pkg",
+            version="1.0.0",
+            platforms=["GNU/Linux"],
+        )
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_author_name_only(self, mock_setup, mock_exit):
+        authors_block = textwrap.dedent(
+            """\
+            authors = [
+                {name = "Test Author"},
+            ]
+            """
+        )
+        with _project_dir(_minimal_pyproject(authors_block=authors_block)):
+            _run_setup_script()
+
+        mock_exit.assert_not_called()
+        mock_setup.assert_called_once_with(
+            name="test-pkg",
+            version="1.0.0",
+            author="Test Author",
+            platforms=["GNU/Linux"],
+        )
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_author_email_only(self, mock_setup, mock_exit):
+        authors_block = textwrap.dedent(
+            """\
+            authors = [
+                {email = "test@example.com"},
+            ]
+            """
+        )
+        with _project_dir(_minimal_pyproject(authors_block=authors_block)):
+            _run_setup_script()
+
+        mock_exit.assert_not_called()
+        mock_setup.assert_called_once_with(
+            name="test-pkg",
+            version="1.0.0",
             author_email="test@example.com",
             platforms=["GNU/Linux"],
         )
