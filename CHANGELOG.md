@@ -19,6 +19,11 @@ and this project adheres to
 - build: Make `authors` optional in setup converter (omit `author` and
   `author_email` when not specified).
 
+### Fixed
+
+- log: Clear handlers in `setup_logger()` by default to avoid duplicate log
+  lines, with optional clear=False to keep existing handlers (#88).
+
 ## [1.8.0] - 2026-05-22
 
 ### Added
