@@ -154,6 +154,127 @@ class TestSetupScript(unittest.TestCase):
 
     @patch("sys.exit")
     @patch("setuptools.setup")
+    def test_autofind_packages_with_top_level_wildcard(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.packages.find]
+        include = ["mypkg*"]
+        """
+
+        def layout(root):
+            mypkg = root / "mypkg"
+            mypkg.mkdir()
+            mypkg.joinpath("__init__.py").write_text("", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+            expected_packages = find_packages()
+
+        mock_setup.assert_called_once()
+        self.assertEqual(
+            mock_setup.call_args[1]["packages"],
+            expected_packages,
+        )
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_autofind_flat_layout_ignores_include_filter(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.packages.find]
+        include = ["mypkg.*"]
+        """
+
+        def layout(root):
+            mypkg = root / "mypkg"
+            mypkg.mkdir()
+            mypkg.joinpath("__init__.py").write_text("", encoding="utf-8")
+            other = root / "other"
+            other.mkdir()
+            other.joinpath("__init__.py").write_text("", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+            expected_packages = find_packages()
+
+        mock_setup.assert_called_once()
+        self.assertEqual(
+            mock_setup.call_args[1]["packages"],
+            expected_packages,
+        )
+        self.assertEqual(sorted(expected_packages), ["mypkg", "other"])
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_autofind_packages_src_layout_where_only(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.packages.find]
+        where = ["src"]
+        """
+
+        def layout(root):
+            mypkg = root / "src" / "mypkg"
+            mypkg.mkdir(parents=True)
+            mypkg.joinpath("__init__.py").write_text("", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+            expected_packages = find_packages(where="src")
+
+        mock_setup.assert_called_once()
+        kwargs = mock_setup.call_args[1]
+        self.assertEqual(kwargs["packages"], expected_packages)
+        self.assertEqual(kwargs["package_dir"], {"": "src"})
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_namespace_packages_with_where(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.packages.find]
+        where = ["src"]
+        include = ["myapp.core*"]
+        """
+
+        def layout(root):
+            myapp_core = root / "src" / "myapp" / "core"
+            myapp_core.mkdir(parents=True)
+            myapp_core.joinpath("__init__.py").write_text("", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+
+        mock_setup.assert_called_once()
+        kwargs = mock_setup.call_args[1]
+        self.assertEqual(kwargs["packages"], ["myapp.core"])
+        self.assertEqual(kwargs["package_dir"], {"": "src"})
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_autofind_packages_src_layout_with_include(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.packages.find]
+        where = ["src"]
+        include = ["mypkg.*"]
+        """
+
+        def layout(root):
+            mypkg = root / "src" / "mypkg"
+            mypkg.mkdir(parents=True)
+            mypkg.joinpath("__init__.py").write_text("", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+            expected_packages = find_packages(
+                where="src",
+                include=("mypkg.*",),
+                exclude=(),
+            )
+
+        mock_setup.assert_called_once()
+        kwargs = mock_setup.call_args[1]
+        self.assertEqual(kwargs["packages"], expected_packages)
+        self.assertEqual(kwargs["package_dir"], {"": "src"})
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
     def test_explicit_packages_without_find(self, mock_setup, mock_exit):
         extra = """
         [tool.setuptools]
@@ -182,6 +303,123 @@ class TestSetupScript(unittest.TestCase):
         kwargs = mock_setup.call_args[1]
         self.assertEqual(kwargs["package_data"], {"pkg.data": ["*.json"]})
         self.assertTrue(kwargs["include_package_data"])
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_data_files_literals(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.data-files]
+        "slurm-quota/conf" = [
+            "conf/serve.yml",
+            "conf/serve.ini.example",
+        ]
+        """
+
+        def layout(root):
+            conf = root / "conf"
+            conf.mkdir()
+            conf.joinpath("serve.yml").write_text("yml", encoding="utf-8")
+            conf.joinpath("serve.ini.example").write_text("ini", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+
+        mock_setup.assert_called_once()
+        self.assertEqual(
+            mock_setup.call_args[1]["data_files"],
+            [
+                (
+                    "slurm-quota/conf",
+                    ["conf/serve.yml", "conf/serve.ini.example"],
+                ),
+            ],
+        )
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_data_files_glob_expansion(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.data-files]
+        "slurm-quota/web/templates" = ["web/templates/*"]
+        "slurm-quota/web/static" = ["web/static/*"]
+        """
+
+        def layout(root):
+            templates = root / "web" / "templates"
+            templates.mkdir(parents=True)
+            templates.joinpath("a.html").write_text("html", encoding="utf-8")
+            static = root / "web" / "static"
+            static.mkdir(parents=True)
+            static.joinpath("b.css").write_text("css", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+
+        mock_setup.assert_called_once()
+        self.assertEqual(
+            mock_setup.call_args[1]["data_files"],
+            [
+                ("slurm-quota/web/templates", ["web/templates/a.html"]),
+                ("slurm-quota/web/static", ["web/static/b.css"]),
+            ],
+        )
+
+    @patch("sys.exit")
+    @patch("setuptools.setup")
+    def test_data_files_mixed_literals_and_globs(self, mock_setup, mock_exit):
+        extra = """
+        [tool.setuptools.data-files]
+        "slurm-quota/conf" = [
+            "conf/serve.yml",
+            "conf/serve.ini.example",
+            "conf/slurm-quota-web.default",
+        ]
+        "slurm-quota/web/wsgi" = ["web/wsgi/slurm-quota-web.wsgi"]
+        "slurm-quota/web/templates" = ["web/templates/*"]
+        "slurm-quota/web/static" = ["web/static/*"]
+        """
+
+        def layout(root):
+            conf = root / "conf"
+            conf.mkdir()
+            conf.joinpath("serve.yml").write_text("yml", encoding="utf-8")
+            conf.joinpath("serve.ini.example").write_text("ini", encoding="utf-8")
+            conf.joinpath("slurm-quota-web.default").write_text(
+                "default", encoding="utf-8"
+            )
+            wsgi = root / "web" / "wsgi"
+            wsgi.mkdir(parents=True)
+            wsgi.joinpath("slurm-quota-web.wsgi").write_text("wsgi", encoding="utf-8")
+            templates = root / "web" / "templates"
+            templates.mkdir(parents=True)
+            templates.joinpath("index.html").write_text("html", encoding="utf-8")
+            static = root / "web" / "static"
+            static.mkdir(parents=True)
+            static.joinpath("app.css").write_text("css", encoding="utf-8")
+
+        with _project_dir(_minimal_pyproject(extra), layout=layout):
+            _run_setup_script()
+
+        mock_setup.assert_called_once()
+        self.assertEqual(
+            mock_setup.call_args[1]["data_files"],
+            [
+                (
+                    "slurm-quota/conf",
+                    [
+                        "conf/serve.yml",
+                        "conf/serve.ini.example",
+                        "conf/slurm-quota-web.default",
+                    ],
+                ),
+                (
+                    "slurm-quota/web/wsgi",
+                    ["web/wsgi/slurm-quota-web.wsgi"],
+                ),
+                ("slurm-quota/web/templates", ["web/templates/index.html"]),
+                ("slurm-quota/web/static", ["web/static/app.css"]),
+            ],
+        )
 
     @patch("sys.exit")
     @patch("setuptools.setup")
