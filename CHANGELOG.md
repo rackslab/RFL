@@ -24,6 +24,7 @@ and this project adheres to
 
 - log: Clear handlers in `setup_logger()` by default to avoid duplicate log
   lines, with optional clear=False to keep existing handlers (#88).
+- auth: LDAP debug log search base error.
 
 ## [1.8.0] - 2026-05-22
 

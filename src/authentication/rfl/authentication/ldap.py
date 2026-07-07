@@ -314,7 +314,7 @@ class LDAPAuthentifier:
             connection.unbind_s()
         logger.debug(
             "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
-            self.group_base,
+            self.user_base,
             search_filter,
             str(results),
         )
@@ -412,7 +412,7 @@ class LDAPAuthentifier:
             ) from err
         logger.debug(
             "LDAP search base: %s, scope: subtree, filter: %s, results: %s",
-            self.group_base,
+            self.user_base,
             search_filter,
             str(results),
         )
