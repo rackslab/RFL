@@ -7,6 +7,7 @@
 from typing import Optional, List, Tuple
 from pathlib import Path
 import logging
+import os
 
 try:
     import ldap
@@ -91,19 +92,34 @@ class LDAPAuthentifier:
             connection.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
             # For LDAPS and STARTTLS, libldap require the path to CA certificates to be
             # defined to authentication server certificate. If the cacert option is
-            # defined, use it else use default system CA certificates directory defined
-            # in OpenSSL library.
+            # defined, use it else use default system CA certificates defined in
+            # OpenSSL library. Prefer the PEM bundle file (CAFILE) when available,
+            # as modern distributions store trust anchors there rather than in a
+            # hashed certificate directory (CADIR).
             if self.cacert is None:
                 import ssl
 
-                logger.debug(
-                    "Using default system OpenSSL CA certificate directory to "
-                    "authenticate server"
-                )
-                connection.set_option(
-                    ldap.OPT_X_TLS_CACERTDIR,
-                    ssl.get_default_verify_paths().openssl_capath,
-                )
+                paths = ssl.get_default_verify_paths()
+                if paths.openssl_cafile and os.path.isfile(paths.openssl_cafile):
+                    logger.debug(
+                        "Using default system OpenSSL CA certificate file %s to "
+                        "authenticate server",
+                        paths.openssl_cafile,
+                    )
+                    connection.set_option(
+                        ldap.OPT_X_TLS_CACERTFILE,
+                        paths.openssl_cafile,
+                    )
+                elif paths.openssl_capath and os.path.isdir(paths.openssl_capath):
+                    logger.debug(
+                        "Using default system OpenSSL CA certificate directory %s "
+                        "to authenticate server",
+                        paths.openssl_capath,
+                    )
+                    connection.set_option(
+                        ldap.OPT_X_TLS_CACERTDIR,
+                        paths.openssl_capath,
+                    )
             else:
                 logger.debug(
                     "Using CA certification %s to authenticate server", self.cacert

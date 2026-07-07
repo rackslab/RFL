@@ -24,7 +24,10 @@ and this project adheres to
 
 - log: Clear handlers in `setup_logger()` by default to avoid duplicate log
   lines, with optional clear=False to keep existing handlers (#88).
-- auth: LDAP debug log search base error.
+- auth:
+  - LDAP debug log search base error.
+  - LDAP TLS certificate validation with default system CA trust store by
+    preferring PEM bundle (CAFILE) over capath (CADIR).
 
 ## [1.8.0] - 2026-05-22
 
