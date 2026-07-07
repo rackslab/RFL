@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
+import os
 import unittest
 from unittest.mock import patch, Mock
 from pathlib import Path
@@ -42,15 +43,21 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_ldap_object.set_option.assert_not_called()
 
         # With ldaps URI and no CA certificate path, check LDAP server certificate is
-        # required and validated with default system OpenSSL certificates directory.
+        # required and validated with default system OpenSSL CA certificates.
         self.authentifier.uri = urllib.parse.urlparse("ldaps://localhost")
         self.authentifier.connection()
         mock_ldap_object.set_option.assert_any_call(
             mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
         )
-        mock_ldap_object.set_option.assert_any_call(
-            mock_ldap.OPT_X_TLS_CACERTDIR, ssl.get_default_verify_paths().openssl_capath
-        )
+        paths = ssl.get_default_verify_paths()
+        if paths.openssl_cafile and os.path.isfile(paths.openssl_cafile):
+            mock_ldap_object.set_option.assert_any_call(
+                mock_ldap.OPT_X_TLS_CACERTFILE, paths.openssl_cafile
+            )
+        elif paths.openssl_capath and os.path.isdir(paths.openssl_capath):
+            mock_ldap_object.set_option.assert_any_call(
+                mock_ldap.OPT_X_TLS_CACERTDIR, paths.openssl_capath
+            )
         mock_ldap_object.reset_mock()
 
         # With CA certificate path, check LDAP server certificate is required and
