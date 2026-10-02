@@ -4,10 +4,10 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-from typing import Optional, List, Tuple
-from pathlib import Path
 import logging
 import os
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 try:
     import ldap
@@ -15,9 +15,8 @@ try:
 except ImportError as err:
     raise ImportError("python-ldap is required for RFL LDAP Authentication") from err
 
-from .user import AuthenticatedUser
 from .errors import LDAPAuthenticationError
-
+from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -367,8 +366,16 @@ class LDAPAuthentifier:
         and the user in not member of any of these groups."""
         fullname = None
         groups = None
-        if user is None or password is None:
+
+        # Reject missing, non-string or empty credentials before any LDAP
+        # operation. An empty password in particular must never reach
+        # simple_bind_s(): per RFC 4513 section 5.1.2 it triggers an
+        # "unauthenticated bind" that some servers accept as a success,
+        # allowing authentication as any existing user.
+        if not isinstance(user, str) or not isinstance(password, str):
             raise LDAPAuthenticationError("Invalid authentication request")
+        if not user.strip() or not password:
+            raise LDAPAuthenticationError("Invalid user or password")
 
         # Lookup user DN in user base.
         user_dn = self._lookup_user_dn(user)
