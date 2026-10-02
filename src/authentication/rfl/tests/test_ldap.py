@@ -5,17 +5,16 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 import os
-import unittest
-from unittest.mock import patch, Mock
-from pathlib import Path
-import urllib
 import ssl
+import unittest
+import urllib
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import ldap
 import ldap.filter
-
-from rfl.authentication.ldap import LDAPAuthentifier
 from rfl.authentication.errors import LDAPAuthenticationError
+from rfl.authentication.ldap import LDAPAuthentifier
 
 
 class MockLDAPObject:
@@ -371,6 +370,24 @@ class TestLDAPAuthentifier(unittest.TestCase):
     @patch.object(LDAPAuthentifier, "_get_user_info")
     @patch.object(LDAPAuthentifier, "_get_groups")
     @patch("rfl.authentication.ldap.ldap")
+    def test_login_ok_with_spaces_in_password(
+        self, mock_ldap, mock_get_groups, mock_get_user_info, mock_lookup_user_dn
+    ):
+        mock_get_groups.return_value = ["group1", "group2"]
+        mock_get_user_info.return_value = ("John Doe", 42)
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
+        mock_ldap_object = mock_ldap.initialize.return_value
+
+        self.authentifier.login("john", " s p a c e ")
+
+        mock_ldap_object.simple_bind_s.assert_called_once_with(
+            "uid=john,ou=people,dc=corp,dc=org", " s p a c e "
+        )
+
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    @patch.object(LDAPAuthentifier, "_get_user_info")
+    @patch.object(LDAPAuthentifier, "_get_groups")
+    @patch("rfl.authentication.ldap.ldap")
     def test_login_not_in_restricted_group(
         self, mock_ldap, mock_get_groups, mock_get_user_info, mock_lookup_user_dn
     ):
@@ -387,12 +404,61 @@ class TestLDAPAuthentifier(unittest.TestCase):
         ):
             self.authentifier.login("john", "SECR3T")
 
-    def test_login_missing_user_or_password(self):
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    def test_login_missing_user_or_password(self, mock_lookup_user_dn):
+        for user, password in [
+            ("john", None),
+            (None, "SECR3T"),
+            (None, None),
+        ]:
+            with self.assertRaisesRegex(
+                LDAPAuthenticationError, "^Invalid authentication request$"
+            ):
+                self.authentifier.login(user, password)
+
+        mock_lookup_user_dn.assert_not_called()
+
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    def test_login_non_string_credentials(self, mock_lookup_user_dn):
+        for user, password in [
+            (["john"], "SECR3T"),
+            ("john", 1234),
+            (42, 42),
+            ({}, "SECR3T"),
+        ]:
+            with self.assertRaisesRegex(
+                LDAPAuthenticationError, "^Invalid authentication request$"
+            ):
+                self.authentifier.login(user, password)
+
+        mock_lookup_user_dn.assert_not_called()
+
+    @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    def test_login_empty_password_rejected(
+        self, mock_lookup_user_dn, mock_simple_bind_s
+    ):
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
         with self.assertRaisesRegex(
-            LDAPAuthenticationError, "Invalid authentication request"
+            LDAPAuthenticationError, "^Invalid user or password$"
         ):
-            self.authentifier.login("john", None)
-            self.authentifier.login(None, "SECR3T")
+            self.authentifier.login("john", "")
+
+        mock_simple_bind_s.assert_not_called()
+
+    @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    def test_login_empty_or_blank_user_rejected(
+        self, mock_lookup_user_dn, mock_simple_bind_s
+    ):
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
+        for user in ["", "   "]:
+            with self.assertRaisesRegex(
+                LDAPAuthenticationError, "^Invalid user or password$"
+            ):
+                self.authentifier.login(user, "SECR3T")
+
+        mock_simple_bind_s.assert_not_called()
 
     @patch.object(LDAPAuthentifier, "_lookup_user_dn")
     @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
