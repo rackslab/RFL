@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Fixed
+
+- auth: Reject missing, non-string, blank usernames and empty passwords in
+  `LDAPAuthentifier.login()` before any LDAP operation, so an empty password
+  cannot succeed as an unauthenticated bind (RFC 4513). Contribution from
+  @AugustoMagalhaes.
+
 ## [1.9.0] - 2026-07-09
 
 ### Added
