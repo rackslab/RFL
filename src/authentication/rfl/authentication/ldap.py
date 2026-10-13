@@ -20,6 +20,8 @@ from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
+INVALID_CREDENTIALS_MESSAGE = "Invalid user or password"
+
 
 class LDAPAuthentifier:
     def __init__(
@@ -375,7 +377,7 @@ class LDAPAuthentifier:
         if not isinstance(user, str) or not isinstance(password, str):
             raise LDAPAuthenticationError("Invalid authentication request")
         if not user.strip() or not password:
-            raise LDAPAuthenticationError("Invalid user or password")
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
 
         # Lookup user DN in user base. Return a generic error when the user cannot
         # be resolved, so it is indistinguishable from a wrong password to avoid
@@ -383,7 +385,7 @@ class LDAPAuthentifier:
         try:
             user_dn = self._lookup_user_dn(user)
         except LDAPUserNotFoundError as err:
-            raise LDAPAuthenticationError("Invalid user or password") from err
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
         logger.debug("DN user for authentication of user %s: %s", user, user_dn)
 
         connection = self.connection()
@@ -407,14 +409,14 @@ class LDAPAuthentifier:
                 f"LDAP server {self.uri.geturl()} is unreachable"
             ) from err
         except ldap.INVALID_CREDENTIALS as err:
-            raise LDAPAuthenticationError("Invalid user or password") from err
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
         except ldap.UNWILLING_TO_PERFORM as err:
             # A locked or disabled account makes the server refuse the bind. Log the
             # reason but return the generic error to avoid revealing the account exists.
             logger.warning(
                 "LDAP server unwilling to perform bind for user %s: %s", user, str(err)
             )
-            raise LDAPAuthenticationError("Invalid user or password") from err
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
         finally:
             connection.unbind_s()
         if not self._in_restricted_groups(groups):
