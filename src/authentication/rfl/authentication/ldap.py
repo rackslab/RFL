@@ -409,9 +409,12 @@ class LDAPAuthentifier:
         except ldap.INVALID_CREDENTIALS as err:
             raise LDAPAuthenticationError("Invalid user or password") from err
         except ldap.UNWILLING_TO_PERFORM as err:
-            raise LDAPAuthenticationError(
-                f"LDAP server is unwilling to perform: {str(err)}"
-            ) from err
+            # A locked or disabled account makes the server refuse the bind. Log the
+            # reason but return the generic error to avoid revealing the account exists.
+            logger.warning(
+                "LDAP server unwilling to perform bind for user %s: %s", user, str(err)
+            )
+            raise LDAPAuthenticationError("Invalid user or password") from err
         finally:
             connection.unbind_s()
         if not self._in_restricted_groups(groups):
