@@ -15,7 +15,7 @@ try:
 except ImportError as err:
     raise ImportError("python-ldap is required for RFL LDAP Authentication") from err
 
-from .errors import LDAPAuthenticationError
+from .errors import LDAPAuthenticationError, LDAPUserNotFoundError
 from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
@@ -341,7 +341,7 @@ class LDAPAuthentifier:
                 user,
                 self.user_base,
             )
-            raise LDAPAuthenticationError(
+            raise LDAPUserNotFoundError(
                 f"Unable to find user {user} in base {self.user_base}"
             )
         # Check no more than one result has been found or raise error
@@ -353,9 +353,9 @@ class LDAPAuthentifier:
                 user,
                 self.user_base,
             )
-            raise LDAPAuthenticationError(
+            raise LDAPUserNotFoundError(
                 f"Too many users found ({len(results)}) with username {user} in base "
-                f"{self.user_base}"
+                + f"{self.user_base}"
             )
         # Return DN of this unique result
         return results[0][0]
@@ -377,8 +377,13 @@ class LDAPAuthentifier:
         if not user.strip() or not password:
             raise LDAPAuthenticationError("Invalid user or password")
 
-        # Lookup user DN in user base.
-        user_dn = self._lookup_user_dn(user)
+        # Lookup user DN in user base. Return a generic error when the user cannot
+        # be resolved, so it is indistinguishable from a wrong password to avoid
+        # username enumeration (CWE-204)
+        try:
+            user_dn = self._lookup_user_dn(user)
+        except LDAPUserNotFoundError as err:
+            raise LDAPAuthenticationError("Invalid user or password") from err
         logger.debug("DN user for authentication of user %s: %s", user, user_dn)
 
         connection = self.connection()
