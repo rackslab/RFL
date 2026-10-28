@@ -4,8 +4,8 @@ Logging utility.
 
 ## setup_logger()
 
-Configure the root logger with a stream handler, formatter, and per-component
-filtering.
+Configure the root logger with one or two stream handlers, a formatter, and
+per-component filtering.
 
 ### Basic usage
 
@@ -44,6 +44,25 @@ setup_logger(log_flags=["ALL"], debug_flags=["ALL"])  # show everything
 
 Component names are derived from the first segment of the logger name
 (e.g. `rfl.pkg.module` → `rfl`).
+
+### Streams
+
+By default, one handler writes every accepted record to stderr. Pass `stream`
+to send that single handler somewhere else. Every accepted level still goes to
+that stream.
+
+```python
+import sys
+
+setup_logger(stream=sys.stdout)        # single handler on stdout
+setup_logger(error_stream=sys.stderr)  # below WARNING → stdout, WARNING+ → stderr
+```
+
+When `error_stream` is set, records below WARNING go to `stream` (`sys.stdout`
+when `stream` is omitted) and WARNING and above go to `error_stream`. The error
+handler level is at least WARNING, and at least the configured level, so a
+level of ERROR still suppresses WARNING. Both handlers share the formatter and
+the component filters.
 
 ### Other options
 
