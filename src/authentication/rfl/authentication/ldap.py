@@ -15,7 +15,7 @@ try:
 except ImportError as err:
     raise ImportError("python-ldap is required for RFL LDAP Authentication") from err
 
-from .errors import LDAPAuthenticationError, LDAPUserNotFoundError
+from .errors import LDAPAuthenticationError
 from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
@@ -335,7 +335,10 @@ class LDAPAuthentifier:
             search_filter,
             str(results),
         )
-        # Check at least one result has been found or raise error
+        # A user that cannot be resolved to exactly one entry (not found, or several
+        # matches) must return the same generic error as a wrong password, otherwise
+        # the different messages allow username enumeration (CWE-204). The specific
+        # reason is logged below for diagnosis.
         if not len(results):
             logger.warning(
                 "Unable to find user %s=%s in LDAP in base %s subtree",
@@ -343,10 +346,7 @@ class LDAPAuthentifier:
                 user,
                 self.user_base,
             )
-            raise LDAPUserNotFoundError(
-                f"Unable to find user {user} in base {self.user_base}"
-            )
-        # Check no more than one result has been found or raise error
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
         if len(results) > 1:
             logger.warning(
                 "Too many users found (%d) with %s=%s in LDAP in base %s subtree",
@@ -355,10 +355,7 @@ class LDAPAuthentifier:
                 user,
                 self.user_base,
             )
-            raise LDAPUserNotFoundError(
-                f"Too many users found ({len(results)}) with username {user} in base "
-                + f"{self.user_base}"
-            )
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
         # Return DN of this unique result
         return results[0][0]
 
@@ -379,13 +376,8 @@ class LDAPAuthentifier:
         if not user.strip() or not password:
             raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
 
-        # Lookup user DN in user base. Return a generic error when the user cannot
-        # be resolved, so it is indistinguishable from a wrong password to avoid
-        # username enumeration (CWE-204)
-        try:
-            user_dn = self._lookup_user_dn(user)
-        except LDAPUserNotFoundError as err:
-            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
+        # Lookup user DN in user base.
+        user_dn = self._lookup_user_dn(user)
         logger.debug("DN user for authentication of user %s: %s", user, user_dn)
 
         connection = self.connection()

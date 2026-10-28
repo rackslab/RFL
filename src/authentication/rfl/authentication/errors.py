@@ -15,10 +15,6 @@ class LDAPAuthenticationError(AuthenticationError):
     pass
 
 
-class LDAPUserNotFoundError(LDAPAuthenticationError):
-    pass
-
-
 class OIDCAuthenticationError(AuthenticationError):
     pass
 

@@ -13,10 +13,7 @@ from unittest.mock import Mock, patch
 
 import ldap
 import ldap.filter
-from rfl.authentication.errors import (
-    LDAPAuthenticationError,
-    LDAPUserNotFoundError,
-)
+from rfl.authentication.errors import LDAPAuthenticationError
 from rfl.authentication.ldap import LDAPAuthentifier
 
 
@@ -301,11 +298,10 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_ldap_object = mock_ldap_initialize.return_value
         mock_ldap_object.search_s.return_value = []
 
-        # Check LDAPUserNotFoundError is raised due to no result found. This dedicated
-        # exception is what lets login() return a generic error and avoid enumeration.
+        # A user not found returns the generic error to avoid username enumeration.
         with self.assertRaisesRegex(
-            LDAPUserNotFoundError,
-            r"^Unable to find user john in base ou=people,dc=corp,dc=org$",
+            LDAPAuthenticationError,
+            r"^Invalid user or password$",
         ):
             self.authentifier._lookup_user_dn("john")
         mock_ldap_object.search_s.assert_called_once()
@@ -327,11 +323,11 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 {"cn": [b"Alice Doe"]},
             ),
         ]
-        # Check LDAPUserNotFoundError is raised due to too many results found
+
+        # Too many matches also returns the generic error to avoid user enumeration.
         with self.assertRaisesRegex(
-            LDAPUserNotFoundError,
-            r"^Too many users found \(2\) with username john in base "
-            r"ou=people,dc=corp,dc=org$",
+            LDAPAuthenticationError,
+            r"^Invalid user or password$",
         ):
             self.authentifier._lookup_user_dn("john")
         mock_ldap_object.search_s.assert_called_once()
@@ -469,11 +465,10 @@ class TestLDAPAuthentifier(unittest.TestCase):
     def test_login_user_not_found_is_generic(
         self, mock_lookup_user_dn, mock_simple_bind_s
     ):
-        # A user missing from the directory (or an ambiguous match) must not be
-        # distinguishable from a wrong password, otherwise the error message allows
-        # username enumeration. The bind must not even be attempted.
-        mock_lookup_user_dn.side_effect = LDAPUserNotFoundError(
-            "Unable to find user ghost in base ou=people,dc=corp,dc=org"
+        # When the user cannot be resolved, login() propagates the generic error and
+        # must not even attempt the bind.
+        mock_lookup_user_dn.side_effect = LDAPAuthenticationError(
+            "Invalid user or password"
         )
         with self.assertRaisesRegex(
             LDAPAuthenticationError, "^Invalid user or password$"
