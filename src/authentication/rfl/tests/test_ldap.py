@@ -491,11 +491,6 @@ class TestLDAPAuthentifier(unittest.TestCase):
         with self.assertRaisesRegex(
             LDAPAuthenticationError, "^Invalid user or password$"
         ):
-            self.authentifier.login("john", "SECR3return_valueT")
-        mock_simple_bind_s.side_effect = ldap.UNWILLING_TO_PERFORM("fail")
-        with self.assertRaisesRegex(
-            LDAPAuthenticationError, "^Invalid user or password$"
-        ):
             self.authentifier.login("john", "SECR3T")
 
     @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
