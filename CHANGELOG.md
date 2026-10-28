@@ -19,6 +19,11 @@ and this project adheres to
   `LDAPAuthentifier.login()` before any LDAP operation, so an empty password
   cannot succeed as an unauthenticated bind (RFC 4513). Contribution from
   @AugustoMagalhaes.
+- auth: Return the same generic "Invalid user or password" error from
+  `LDAPAuthentifier` when a user cannot be resolved or the LDAP server refuses
+  the bind (locked or disabled account), so those cases cannot be distinguished
+  from a wrong password and used for username enumeration (CWE-204) (#103).
+  Contribution from @AugustoMagalhaes.
 
 ## [1.9.0] - 2026-07-09
 
