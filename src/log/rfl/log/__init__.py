@@ -4,8 +4,9 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-from typing import Optional, List, Union
+from typing import IO, Callable, List, Optional, Tuple, Union
 import logging
+import sys
 
 from .formatters import TTYFormatter, DaemonFormatter, auto_formatter
 from .pager import AutoPager, enable_auto_paging, PagerError
@@ -20,6 +21,56 @@ __all__ = [
 ]
 
 
+class _BelowLevelFilter(logging.Filter):
+    """Drop log records at or above a level.
+
+    StreamHandler.setLevel only sets a floor, so the below-WARNING handler
+    needs this to keep WARNING and above off that stream.
+    """
+
+    def __init__(self, level):
+        super(_BelowLevelFilter, self).__init__()
+        self.level = level
+
+    def filter(self, record):
+        return record.levelno < self.level
+
+
+def _component_filter(log_flags, debug_flags):
+    """Return a filter that keeps records enabled by component flags."""
+
+    def custom_filter(record):
+        component = record.name.split(".")[0]
+        if record.levelno == logging.DEBUG:
+            if "ALL" in debug_flags or component in debug_flags:
+                return 1
+            return 0
+        if "ALL" in log_flags or component in log_flags:
+            return 1
+        return 0
+
+    return custom_filter
+
+
+def _add_stream_handler(
+    root_logger: logging.Logger,
+    stream: Optional[IO],
+    level: int,
+    formatter: logging.Formatter,
+    component_filter: Callable[[logging.LogRecord], int],
+    extra_filters: Tuple[logging.Filter, ...] = (),
+) -> logging.StreamHandler:
+    """Attach one stream handler. stream=None selects stderr."""
+    handler = logging.StreamHandler(stream)
+    handler.setLevel(level)
+    handler.setFormatter(formatter)
+    handler.addFilter(component_filter)
+    for extra_filter in extra_filters:
+        handler.addFilter(extra_filter)
+    root_logger.addHandler(handler)
+    return handler
+
+
 def setup_logger(
     debug: bool = False,
     level: Optional[Union[int, str]] = None,
@@ -28,6 +79,8 @@ def setup_logger(
     formatter: logging.Formatter = auto_formatter(),
     component: Optional[str] = None,
     clear: bool = True,
+    stream: Optional[IO] = None,
+    error_stream: Optional[IO] = None,
 ) -> None:
     """Setup root logger level, debug flags and formatter.
 
@@ -37,6 +90,12 @@ def setup_logger(
 
     When clear is True (default), existing root logger handlers are removed
     before adding a new one, similarly to logging.basicConfig(force=True).
+
+    By default, one handler writes every accepted record to stderr, or to
+    stream when that argument is set. When error_stream is set, records
+    below WARNING go to stream (stdout if stream is omitted) and WARNING and
+    above go to error_stream. The error handler level is at least WARNING
+    and at least the resolved level.
     """
     if level is not None:
         if isinstance(level, str):
@@ -63,31 +122,47 @@ def setup_logger(
             root_logger.removeHandler(existing_handler)
             existing_handler.close()
     root_logger.setLevel(logging_level)
-    handler = logging.StreamHandler()
-    handler.setLevel(logging_level)
     formatter = formatter(debug, component)
-    handler.setFormatter(formatter)
+    component_filter = _component_filter(log_flags, debug_flags)
 
-    # filter out all libs logs not enabled in flags
-    def custom_filter(record):
-        component = record.name.split(".")[0]
-        if record.levelno == logging.DEBUG:
-            if "ALL" in debug_flags or component in debug_flags:
-                return 1
-            return 0
-        if "ALL" in log_flags or component in log_flags:
-            return 1
-        return 0
+    # No split: one handler receives every accepted level on stream, or stderr
+    # when stream is omitted.
+    if error_stream is None:
+        _add_stream_handler(
+            root_logger, stream, logging_level, formatter, component_filter
+        )
+        return
 
-    handler.addFilter(custom_filter)
-    root_logger.addHandler(handler)
+    # Split streams: records below WARNING go to stream (stdout when omitted)
+    # and WARNING and above go to error_stream. setLevel only sets a floor, so
+    # the filter drops WARNING and above from this handler.
+    info_stream = sys.stdout if stream is None else stream
+    _add_stream_handler(
+        root_logger,
+        info_stream,
+        logging_level,
+        formatter,
+        component_filter,
+        extra_filters=(_BelowLevelFilter(logging.WARNING),),
+    )
+    _add_stream_handler(
+        root_logger,
+        error_stream,
+        max(logging_level, logging.WARNING),
+        formatter,
+        component_filter,
+    )
 
 
 def enforce_debug(
     log_flags: Optional[List[str]] = None,
     debug_flags: Optional[List[str]] = None,
 ) -> None:
-    """Enforce root logger debug level and debug flags."""
+    """Enforce root logger debug level and debug flags.
+
+    Handlers at INFO are lowered to DEBUG. Handlers at any other level stay
+    as they are, so an error stream at WARNING or above keeps the split.
+    """
     root_logger = logging.getLogger()
     root_logger.setLevel(level=logging.DEBUG)
 
@@ -96,21 +171,21 @@ def enforce_debug(
     if debug_flags is None:
         debug_flags = []
 
-    # filter out all libs logs not enabled in flags
-    def custom_filter(record):
-        component = record.name.split(".")[0]
-        if record.levelno == logging.DEBUG:
-            if "ALL" in debug_flags or component in debug_flags:
-                return 1
-            return 0
-        if "ALL" in log_flags or component in log_flags:
-            return 1
-        return 0
+    component_filter = _component_filter(log_flags, debug_flags)
 
-    # For all handlers, set log level, enable debug in formatter and replace filter.
+    # Replace the component filter and keep the below-WARNING filter. Only
+    # INFO handlers are lowered to DEBUG; a WARNING error stream stays put.
     for handler in root_logger.handlers:
-        handler.setLevel(logging.DEBUG)
+        if handler.level == logging.INFO:
+            handler.setLevel(logging.DEBUG)
         handler.formatter.debug = True
-        for filter in handler.filters:
-            handler.removeFilter(filter)
-            handler.addFilter(custom_filter)
+        preserved = [
+            existing
+            for existing in handler.filters
+            if isinstance(existing, _BelowLevelFilter)
+        ]
+        for existing in handler.filters[:]:
+            handler.removeFilter(existing)
+        handler.addFilter(component_filter)
+        for existing in preserved:
+            handler.addFilter(existing)

@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [unreleased]
 
+### Added
+
+- log: Send records below WARNING to a separate stream in `setup_logger()` via
+  optional `stream` and `error_stream` (#98).
+
 ### Fixed
 
 - auth: Reject missing, non-string, blank usernames and empty passwords in
