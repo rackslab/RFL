@@ -298,10 +298,10 @@ class TestLDAPAuthentifier(unittest.TestCase):
         mock_ldap_object = mock_ldap_initialize.return_value
         mock_ldap_object.search_s.return_value = []
 
-        # Check exception is raised due to no result found
+        # A user not found returns the generic error to avoid username enumeration.
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            r"^Unable to find user john in base ou=people,dc=corp,dc=org$",
+            r"^Invalid user or password$",
         ):
             self.authentifier._lookup_user_dn("john")
         mock_ldap_object.search_s.assert_called_once()
@@ -323,11 +323,11 @@ class TestLDAPAuthentifier(unittest.TestCase):
                 {"cn": [b"Alice Doe"]},
             ),
         ]
-        # Check exception is raised due to too many results found
+
+        # Too many matches also returns the generic error to avoid user enumeration.
         with self.assertRaisesRegex(
             LDAPAuthenticationError,
-            r"^Too many users found \(2\) with username john in base "
-            r"ou=people,dc=corp,dc=org$",
+            r"^Invalid user or password$",
         ):
             self.authentifier._lookup_user_dn("john")
         mock_ldap_object.search_s.assert_called_once()
@@ -460,6 +460,23 @@ class TestLDAPAuthentifier(unittest.TestCase):
 
         mock_simple_bind_s.assert_not_called()
 
+    @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    def test_login_user_not_found_is_generic(
+        self, mock_lookup_user_dn, mock_simple_bind_s
+    ):
+        # When the user cannot be resolved, login() propagates the generic error and
+        # must not even attempt the bind.
+        mock_lookup_user_dn.side_effect = LDAPAuthenticationError(
+            "Invalid user or password"
+        )
+        with self.assertRaisesRegex(
+            LDAPAuthenticationError, "^Invalid user or password$"
+        ):
+            self.authentifier.login("ghost", "SECR3T")
+
+        mock_simple_bind_s.assert_not_called()
+
     @patch.object(LDAPAuthentifier, "_lookup_user_dn")
     @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
     def test_login_errors(self, mock_simple_bind_s, mock_lookup_user_dn):
@@ -474,10 +491,20 @@ class TestLDAPAuthentifier(unittest.TestCase):
         with self.assertRaisesRegex(
             LDAPAuthenticationError, "^Invalid user or password$"
         ):
-            self.authentifier.login("john", "SECR3return_valueT")
-        mock_simple_bind_s.side_effect = ldap.UNWILLING_TO_PERFORM("fail")
+            self.authentifier.login("john", "SECR3T")
+
+    @patch.object(ldap.ldapobject.LDAPObject, "simple_bind_s")
+    @patch.object(LDAPAuthentifier, "_lookup_user_dn")
+    def test_login_account_locked_is_generic(
+        self, mock_lookup_user_dn, mock_simple_bind_s
+    ):
+        # A locked or disabled account makes the server refuse the bind with
+        # unwillingToPerform. It must return the generic error so the account is not
+        # revealed to exist (enumeration via account lock).
+        mock_lookup_user_dn.return_value = "uid=john,ou=people,dc=corp,dc=org"
+        mock_simple_bind_s.side_effect = ldap.UNWILLING_TO_PERFORM("account locked")
         with self.assertRaisesRegex(
-            LDAPAuthenticationError, "^LDAP server is unwilling to perform: fail$"
+            LDAPAuthenticationError, "^Invalid user or password$"
         ):
             self.authentifier.login("john", "SECR3T")
 

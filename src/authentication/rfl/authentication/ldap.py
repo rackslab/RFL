@@ -20,6 +20,8 @@ from .user import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
+INVALID_CREDENTIALS_MESSAGE = "Invalid user or password"
+
 
 class LDAPAuthentifier:
     def __init__(
@@ -333,7 +335,10 @@ class LDAPAuthentifier:
             search_filter,
             str(results),
         )
-        # Check at least one result has been found or raise error
+        # A user that cannot be resolved to exactly one entry (not found, or several
+        # matches) must return the same generic error as a wrong password, otherwise
+        # the different messages allow username enumeration (CWE-204). The specific
+        # reason is logged below for diagnosis.
         if not len(results):
             logger.warning(
                 "Unable to find user %s=%s in LDAP in base %s subtree",
@@ -341,10 +346,7 @@ class LDAPAuthentifier:
                 user,
                 self.user_base,
             )
-            raise LDAPAuthenticationError(
-                f"Unable to find user {user} in base {self.user_base}"
-            )
-        # Check no more than one result has been found or raise error
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
         if len(results) > 1:
             logger.warning(
                 "Too many users found (%d) with %s=%s in LDAP in base %s subtree",
@@ -353,10 +355,7 @@ class LDAPAuthentifier:
                 user,
                 self.user_base,
             )
-            raise LDAPAuthenticationError(
-                f"Too many users found ({len(results)}) with username {user} in base "
-                f"{self.user_base}"
-            )
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
         # Return DN of this unique result
         return results[0][0]
 
@@ -375,7 +374,7 @@ class LDAPAuthentifier:
         if not isinstance(user, str) or not isinstance(password, str):
             raise LDAPAuthenticationError("Invalid authentication request")
         if not user.strip() or not password:
-            raise LDAPAuthenticationError("Invalid user or password")
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE)
 
         # Lookup user DN in user base.
         user_dn = self._lookup_user_dn(user)
@@ -402,11 +401,14 @@ class LDAPAuthentifier:
                 f"LDAP server {self.uri.geturl()} is unreachable"
             ) from err
         except ldap.INVALID_CREDENTIALS as err:
-            raise LDAPAuthenticationError("Invalid user or password") from err
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
         except ldap.UNWILLING_TO_PERFORM as err:
-            raise LDAPAuthenticationError(
-                f"LDAP server is unwilling to perform: {str(err)}"
-            ) from err
+            # A locked or disabled account makes the server refuse the bind. Log the
+            # reason but return the generic error to avoid revealing the account exists.
+            logger.warning(
+                "LDAP server unwilling to perform bind for user %s: %s", user, str(err)
+            )
+            raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
         finally:
             connection.unbind_s()
         if not self._in_restricted_groups(groups):
