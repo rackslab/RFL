@@ -9,7 +9,7 @@ import sys
 import unittest
 import logging
 
-from rfl.log import setup_logger, enforce_debug
+from rfl.log import setup_logger, enforce_debug, component_flag_filter
 from rfl.log.formatters import DaemonFormatter
 
 
@@ -27,6 +27,71 @@ class TestLogFilterer(unittest.TestCase):
         if record.levelno < handler.level:
             return
         self.assertFalse(handler.filter(record), False)
+
+
+class TestComponentFlagFilter(TestLogFilterer):
+    def _handler(self, log_flags=None, debug_flags=None):
+        handler = logging.StreamHandler(io.StringIO())
+        handler.addFilter(component_flag_filter(log_flags, debug_flags))
+        return handler
+
+    def test_none_defaults_drop_records(self):
+        handler = self._handler()
+        self.assertLogRecordFiltered(
+            handler, {"name": "rfl.pkg", "levelno": logging.INFO, "msg": "test"}
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "rfl.pkg", "levelno": logging.DEBUG, "msg": "test"}
+        )
+
+    def test_log_flags_component(self):
+        handler = self._handler(log_flags=["rfl"])
+        self.assertLogRecordNotFiltered(
+            handler, {"name": "rfl.pkg", "levelno": logging.INFO, "msg": "test"}
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "rfl.pkg", "levelno": logging.DEBUG, "msg": "test"}
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "fail.pkg", "levelno": logging.WARNING, "msg": "test"}
+        )
+
+    def test_debug_flags_component(self):
+        handler = self._handler(debug_flags=["test"])
+        self.assertLogRecordNotFiltered(
+            handler, {"name": "test.pkg", "levelno": logging.DEBUG, "msg": "test"}
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "rfl.pkg", "levelno": logging.DEBUG, "msg": "test"}
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "test.pkg", "levelno": logging.INFO, "msg": "test"}
+        )
+
+    def test_all_keeps_every_component(self):
+        handler = self._handler(log_flags=["ALL"], debug_flags=["ALL"])
+        for name in ("rfl.pkg", "fail.pkg"):
+            for level in (logging.DEBUG, logging.INFO, logging.WARNING):
+                self.assertLogRecordNotFiltered(
+                    handler, {"name": name, "levelno": level, "msg": "test"}
+                )
+
+    def test_dotted_name_matches_first_segment_only(self):
+        handler = self._handler(log_flags=["rfl"], debug_flags=["rfl"])
+        self.assertLogRecordNotFiltered(
+            handler,
+            {"name": "rfl.pkg.module", "levelno": logging.INFO, "msg": "test"},
+        )
+        self.assertLogRecordNotFiltered(
+            handler,
+            {"name": "rfl.pkg.module", "levelno": logging.DEBUG, "msg": "test"},
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "other.rfl", "levelno": logging.INFO, "msg": "test"}
+        )
+        self.assertLogRecordFiltered(
+            handler, {"name": "pkg.rfl", "levelno": logging.DEBUG, "msg": "test"}
+        )
 
 
 class TestSetupLogger(TestLogFilterer):
@@ -92,28 +157,9 @@ class TestSetupLogger(TestLogFilterer):
         with self.assertRaisesRegex(TypeError, r"Unsupported log level type: float"):
             setup_logger(level=1.5)
 
-    def test_setup_filter(self):
-        setup_logger(log_flags=["rfl"])
-        # get root logger
-        logger = logging.getLogger()
-        # get stream handler
-        handler = logger.handlers[-1]
-        self.assertLogRecordNotFiltered(
-            handler, {"name": "rfl.pkg", "levelno": logging.INFO, "msg": "test"}
-        )
-        self.assertLogRecordFiltered(
-            handler, {"name": "rfl.pkg", "levelno": logging.DEBUG, "msg": "test"}
-        )
-        self.assertLogRecordFiltered(
-            handler, {"name": "fail.pkg", "levelno": logging.WARNING, "msg": "test"}
-        )
-
-    def test_setup_filter_debug_flags(self):
+    def test_setup_applies_component_filter(self):
         setup_logger(debug=True, log_flags=["rfl"], debug_flags=["test"])
-        # get root logger
-        logger = logging.getLogger()
-        # get stream handler
-        handler = logger.handlers[-1]
+        handler = logging.getLogger().handlers[-1]
         self.assertLogRecordNotFiltered(
             handler, {"name": "rfl.pkg", "levelno": logging.INFO, "msg": "test"}
         )
@@ -121,29 +167,7 @@ class TestSetupLogger(TestLogFilterer):
             handler, {"name": "test.pkg", "levelno": logging.DEBUG, "msg": "test"}
         )
         self.assertLogRecordFiltered(
-            handler, {"name": "fail.pkg", "levelno": logging.WARNING, "msg": "test"}
-        )
-        self.assertLogRecordFiltered(
-            handler, {"name": "rfl.pkg", "levelno": logging.DEBUG, "msg": "test"}
-        )
-
-    def test_setup_filter_debug_all(self):
-        setup_logger(debug=True, log_flags=["ALL"], debug_flags=["ALL"])
-        # get root logger
-        logger = logging.getLogger()
-        # get stream handler
-        handler = logger.handlers[-1]
-        self.assertLogRecordNotFiltered(
-            handler, {"name": "rfl.pkg", "levelno": logging.INFO, "msg": "test"}
-        )
-        self.assertLogRecordNotFiltered(
-            handler, {"name": "rfl.pkg", "levelno": logging.DEBUG, "msg": "test"}
-        )
-        self.assertLogRecordNotFiltered(
-            handler, {"name": "fail.pkg", "levelno": logging.WARNING, "msg": "test"}
-        )
-        self.assertLogRecordNotFiltered(
-            handler, {"name": "fail.pkg", "levelno": logging.DEBUG, "msg": "test"}
+            handler, {"name": "other.pkg", "levelno": logging.INFO, "msg": "test"}
         )
 
     def test_setup_clears_handlers(self):
