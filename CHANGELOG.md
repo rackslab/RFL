@@ -12,6 +12,8 @@ and this project adheres to
 
 - log: Send records below WARNING to a separate stream in `setup_logger()` via
   optional `stream` and `error_stream` (#98).
+- log: Export `component_flag_filter()` so custom handlers can apply the same
+  component allow-list as `setup_logger()` (#99).
 
 ### Fixed
 
