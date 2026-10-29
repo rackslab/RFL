@@ -14,6 +14,9 @@ and this project adheres to
   optional `stream` and `error_stream` (#98).
 - log: Export `component_flag_filter()` so custom handlers can apply the same
   component allow-list as `setup_logger()` (#99).
+- auth: Accept optional `trace_level` on `LDAPAuthentifier`, falling back to
+  `RFL_AUTH_LDAP_TRACE_LEVEL` when omitted, and forward it to
+  `ldap.initialize()` (#101).
 
 ### Changed
 
