@@ -42,6 +42,7 @@ class LDAPAuthentifier:
         restricted_groups: Optional[List[str]] = None,
         lookup_user_dn: bool = False,
         lookup_as_user: Optional[bool] = True,
+        trace_level: Optional[int] = None,
     ):
         self.uri = uri
         self.cacert = cacert
@@ -83,9 +84,30 @@ class LDAPAuthentifier:
                 self.lookup_as_user = False
         else:
             self.lookup_as_user = lookup_as_user
+        # trace_level is forwarded to ldap.initialize() to control python-ldap call
+        # tracing. When omitted, RFL_AUTH_LDAP_TRACE_LEVEL is used when set and
+        # non-empty. An invalid environment value is ignored with a warning. An
+        # explicit argument overrides the environment variable. 0 disables tracing.
+        self.trace_level = self._resolve_trace_level(trace_level)
+
+    @staticmethod
+    def _resolve_trace_level(trace_level: Optional[int]) -> int:
+        if trace_level is not None:
+            return trace_level
+        raw = os.environ.get("RFL_AUTH_LDAP_TRACE_LEVEL")
+        if raw is None or raw == "":
+            return 0
+        try:
+            return int(raw)
+        except ValueError:
+            logger.warning(
+                "Ignoring invalid RFL_AUTH_LDAP_TRACE_LEVEL value %r",
+                raw,
+            )
+            return 0
 
     def connection(self):
-        connection = ldap.initialize(self.uri.geturl())
+        connection = ldap.initialize(self.uri.geturl(), trace_level=self.trace_level)
         # SSL/TLS setup
         if self.uri.geturl().startswith("ldaps") or self.starttls:
             connection.protocol_version = ldap.VERSION3
