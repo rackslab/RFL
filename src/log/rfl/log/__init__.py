@@ -36,8 +36,25 @@ class _BelowLevelFilter(logging.Filter):
         return record.levelno < self.level
 
 
-def _component_filter(log_flags, debug_flags):
-    """Return a filter that keeps records enabled by component flags."""
+def component_flag_filter(
+    log_flags: Optional[List[str]] = None,
+    debug_flags: Optional[List[str]] = None,
+) -> Callable[[logging.LogRecord], int]:
+    """Return a filter that keeps records enabled by component flags.
+
+    The component is the first segment of the logger name
+    (rfl.pkg.module → rfl). DEBUG records are kept only when "ALL" or
+    that component is in debug_flags. Every other level uses log_flags
+    the same way. None means an empty list, which drops records at that
+    level.
+
+    The returned callable is suitable for Handler.addFilter. It returns
+    1 to keep a record and 0 to drop it.
+    """
+    if log_flags is None:
+        log_flags = []
+    if debug_flags is None:
+        debug_flags = []
 
     def custom_filter(record):
         component = record.name.split(".")[0]
@@ -111,11 +128,6 @@ def setup_logger(
     else:
         logging_level = logging.INFO
 
-    if log_flags is None:
-        log_flags = []
-    if debug_flags is None:
-        debug_flags = []
-
     root_logger = logging.getLogger()
     if clear:
         for existing_handler in root_logger.handlers[:]:
@@ -123,7 +135,7 @@ def setup_logger(
             existing_handler.close()
     root_logger.setLevel(logging_level)
     formatter = formatter(debug, component)
-    component_filter = _component_filter(log_flags, debug_flags)
+    component_filter = component_flag_filter(log_flags, debug_flags)
 
     # No split: one handler receives every accepted level on stream, or stderr
     # when stream is omitted.
@@ -166,12 +178,7 @@ def enforce_debug(
     root_logger = logging.getLogger()
     root_logger.setLevel(level=logging.DEBUG)
 
-    if log_flags is None:
-        log_flags = []
-    if debug_flags is None:
-        debug_flags = []
-
-    component_filter = _component_filter(log_flags, debug_flags)
+    component_filter = component_flag_filter(log_flags, debug_flags)
 
     # Replace the component filter and keep the below-WARNING filter. Only
     # INFO handlers are lowered to DEBUG; a WARNING error stream stays put.
