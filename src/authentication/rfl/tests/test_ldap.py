@@ -1178,3 +1178,54 @@ class TestLDAPAuthentifierInit(unittest.TestCase):
             lookup_as_user=False,
         )
         self.assertFalse(auth.lookup_as_user)
+
+
+class TestLDAPAuthentifierTraceLevel(unittest.TestCase):
+    def _authentifier(self, **kwargs):
+        return LDAPAuthentifier(
+            uri=urllib.parse.urlparse("ldap://localhost"),
+            user_base="ou=people,dc=corp,dc=org",
+            group_base="ou=groups,dc=corp,dc=org",
+            **kwargs,
+        )
+
+    def test_trace_level_default(self):
+        env = os.environ.copy()
+        env.pop("RFL_AUTH_LDAP_TRACE_LEVEL", None)
+        with patch.dict(os.environ, env, clear=True):
+            auth = self._authentifier()
+        self.assertEqual(auth.trace_level, 0)
+
+    def test_trace_level_empty_environment(self):
+        with patch.dict(os.environ, {"RFL_AUTH_LDAP_TRACE_LEVEL": ""}):
+            auth = self._authentifier()
+        self.assertEqual(auth.trace_level, 0)
+
+    def test_trace_level_from_environment(self):
+        with patch.dict(os.environ, {"RFL_AUTH_LDAP_TRACE_LEVEL": "2"}):
+            auth = self._authentifier()
+        self.assertEqual(auth.trace_level, 2)
+
+    def test_trace_level_argument_overrides_environment(self):
+        with patch.dict(os.environ, {"RFL_AUTH_LDAP_TRACE_LEVEL": "2"}):
+            auth = self._authentifier(trace_level=1)
+        self.assertEqual(auth.trace_level, 1)
+
+    def test_trace_level_invalid_environment(self):
+        with patch.dict(os.environ, {"RFL_AUTH_LDAP_TRACE_LEVEL": "high"}):
+            with self.assertLogs("rfl.authentication.ldap", level="WARNING") as cm:
+                auth = self._authentifier()
+        self.assertEqual(auth.trace_level, 0)
+        self.assertEqual(
+            cm.output,
+            [
+                "WARNING:rfl.authentication.ldap:Ignoring invalid "
+                "RFL_AUTH_LDAP_TRACE_LEVEL value 'high'"
+            ],
+        )
+
+    @patch.object(ldap, "initialize")
+    def test_connection_forwards_trace_level(self, mock_initialize):
+        auth = self._authentifier(trace_level=2)
+        auth.connection()
+        mock_initialize.assert_called_once_with("ldap://localhost", trace_level=2)
