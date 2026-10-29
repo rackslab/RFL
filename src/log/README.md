@@ -70,3 +70,24 @@ the component filters.
 - `formatter`: formatter class factory (default: TTY or daemon auto-selection)
 - `clear`: when `True` (default), remove existing root handlers before setup;
   set `clear=False` to stack handlers
+
+## component_flag_filter()
+
+Build the same component allow-list used by `setup_logger()` and
+`enforce_debug()`, and attach it to a handler those functions do not create
+(an OTLP bridge, an extra stream, and so on).
+
+```python
+import logging
+from rfl.log import component_flag_filter
+
+handler = logging.StreamHandler()
+handler.addFilter(component_flag_filter(log_flags=["rfl"], debug_flags=["rfl"]))
+logging.getLogger().addHandler(handler)
+```
+
+`log_flags` selects components for INFO and above. `debug_flags` selects
+components for DEBUG only. `"ALL"` matches every component. Omit either list
+(or pass `None`) to drop records at that level. The component is the first
+segment of the logger name (`rfl.pkg.module` → `rfl`). The filter returns `1`
+to keep a record and `0` to drop it.
