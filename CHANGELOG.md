@@ -15,6 +15,11 @@ and this project adheres to
 - log: Export `component_flag_filter()` so custom handlers can apply the same
   component allow-list as `setup_logger()` (#99).
 
+### Changed
+
+- auth: Append the original `ldap.SERVER_DOWN` error to
+  `LDAPAuthenticationError` when the LDAP server is unreachable (#100).
+
 ### Fixed
 
 - auth: Reject missing, non-string, blank usernames and empty passwords in

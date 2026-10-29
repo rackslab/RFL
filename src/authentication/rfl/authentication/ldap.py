@@ -143,7 +143,7 @@ class LDAPAuthentifier:
                 ) from err
             except ldap.SERVER_DOWN as err:
                 raise LDAPAuthenticationError(
-                    f"LDAP server {self.uri.geturl()} is unreachable"
+                    f"LDAP server {self.uri.geturl()} is unreachable: {err}"
                 ) from err
         return connection
 
@@ -283,7 +283,7 @@ class LDAPAuthentifier:
             raise LDAPAuthenticationError("Invalid bind DN or password") from err
         except ldap.SERVER_DOWN as err:
             raise LDAPAuthenticationError(
-                f"LDAP server {self.uri.geturl()} is unreachable"
+                f"LDAP server {self.uri.geturl()} is unreachable: {err}"
             ) from err
 
     def _lookup_user_dn(self, user):
@@ -317,7 +317,7 @@ class LDAPAuthentifier:
             )
         except ldap.SERVER_DOWN as err:
             raise LDAPAuthenticationError(
-                f"LDAP server {self.uri.geturl()} is unreachable"
+                f"LDAP server {self.uri.geturl()} is unreachable: {err}"
             ) from err
         except ldap.NO_SUCH_OBJECT as err:
             raise LDAPAuthenticationError(
@@ -398,7 +398,7 @@ class LDAPAuthentifier:
             groups = self._get_groups(connection, user, user_dn, gid)
         except ldap.SERVER_DOWN as err:
             raise LDAPAuthenticationError(
-                f"LDAP server {self.uri.geturl()} is unreachable"
+                f"LDAP server {self.uri.geturl()} is unreachable: {err}"
             ) from err
         except ldap.INVALID_CREDENTIALS as err:
             raise LDAPAuthenticationError(INVALID_CREDENTIALS_MESSAGE) from err
@@ -498,7 +498,7 @@ class LDAPAuthentifier:
                 )
         except ldap.SERVER_DOWN as err:
             raise LDAPAuthenticationError(
-                f"LDAP server {self.uri.geturl()} is unreachable"
+                f"LDAP server {self.uri.geturl()} is unreachable: {err}"
             ) from err
         except ldap.UNWILLING_TO_PERFORM as err:
             raise LDAPAuthenticationError(
